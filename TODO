@@ -1,0 +1,132 @@
+doctor list✅
+technologies list✅
+login register✅
+
+
+
+permission qo`shish kerak doctor va patient agar registratsia qili b kirsa u patient bo`lib kiradi admin unga doctor permissionini bermaguncha
+
+
+
+
+patientga doctor list lari ko`rilish kerak ✅
+doctorga queue ko`rinish kerak ✅
+doctorga 1 ta odam ocheretda bo`lsa busy bo`lishi kerak ✅
+patientga doctorning queue sida 1 ta odam bo`lsa busy ko`rinishi kerak ✅
+doctor patient ni ko`rib bo`lgandan keyin queueda bitta kamaysin va undan keyingi odam 1 chi o`ringa o`tib qolsin ✅
+
+
+
+otchot oy oxirida
+analizlar javobini kirgizish
+
+registration qismiga treatmentroomlarni qo`shish va o`chitish qo`shilsin ✅
+
+🔧 Recommended Features to Add Next
+1. Patient Queue View per Doctor
+
+
+✅ Each doctor sees their queue of patients.
+
+➕ Add the ability to:
+
+View patient info
+
+Mark a patient as “In Progress”, “Treated”, or “Skipped”
+
+Assign a patient to a treatment room
+
+2. Treatment Room Assignment Logic
+From the Doctor Dashboard or Reception, allow assigning a free room to a patient.
+
+Show which doctor is using which room, and automatically free up the room when treatment is done.
+
+📋 Admin Features (for Clinic Managers)
+3. Admin Dashboard
+List of all:
+
+Doctors
+
+Patients
+
+Rooms
+
+Appointments or Visits
+
+Add/Edit/Delete doctors and treatment rooms
+
+View reports like:
+
+Number of patients per doctor
+
+Room utilization
+
+Daily registration logs
+
+👨‍⚕️ Doctor Features
+4. Doctor Treatment View
+Show:
+
+Patient reason
+
+Visit date/time
+
+History of visits (optional)
+
+Allow the doctor to:
+
+Write treatment notes
+
+Prescribe medication (optional)
+
+Mark patient as “Treated”
+
+📁 Patient History (optional but useful)
+Maintain a simple record of past visits per patient
+
+Can be useful for follow-ups or ongoing conditions
+
+🔐 Authentication and Role-Based Access (if not already done)
+Use JWT or session auth
+
+Roles:
+
+receptionist (only registration and room control)
+
+doctor (only their queue and patients)
+
+admin (all access)
+
+🌐 Optional Extras (for production-ready app)
+✅ Responsive UI with Bootstrap 5 or Tailwind
+
+🔍 Search/filter patients or doctors
+
+📦 Export reports as PDF or Excel
+
+🔔 Notifications for doctors when a new patient is assigned
+
+Suggested Next Step for You
+✅ Since you already have doctor and registration sides, your next practical feature might be:
+
+Doctor queue + patient detail view + room assignment
+
+Let me know which one you’d like to build next — I can help step-by-step with Django APIs, Bootstrap UI, and JavaScript for the frontend.
+
+
+qabulxona
+kassa  ->  vazvrat X
+ bug`alteria -> admin    pul chiqish
+ bemor kelgan kundan hisoblash
+ soat 9 dan kun boshlanadi
+
+doctor page
+narx lar page
+1 yil saqlanish malumot
+
+arxiv page
+    1 yillik malumotlar bemorning malumotlari
+        ism , familia, yoshi, adressi qachan kelgani
+
+
+service page
