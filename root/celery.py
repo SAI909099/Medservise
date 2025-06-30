@@ -16,3 +16,16 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)
 
 app.conf.broker_connection_retry_on_startup = True
+
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    'archive-old-patients-monthly': {
+        'task': 'apps.tasks.archive_old_patients_task',
+        'schedule': crontab(day_of_month=1, hour=2, minute=0),  # 🗓 Monthly
+    },
+    'daily-room-charges': {
+        'task': 'apps.tasks.apply_daily_room_charges',
+        'schedule': crontab(hour=9, minute=0),  # 🕘 Daily at 9 AM
+    },
+}

@@ -3,7 +3,8 @@ import random
 from django.db import models
 
 from django.db import models
-from django.db.models import CharField, Model, ForeignKey, IntegerField, DateTimeField, CASCADE, OneToOneField
+from django.db.models import CharField, Model, ForeignKey, IntegerField, DateTimeField, CASCADE, OneToOneField, \
+    DecimalField
 from django.utils.timezone import now
 
 from django.db import models
@@ -30,15 +31,21 @@ class User(AbstractUser):
     objects = CustomUserManager()
 
 
-
 class Doctor(models.Model):
-    user = OneToOneField(User, on_delete=models.CASCADE , blank=True, null=True)
+    user = OneToOneField(User, on_delete=models.CASCADE, blank=True, null=True)
     name = models.CharField(max_length=100)
     specialty = models.CharField(max_length=100)
 
     def __str__(self):
         return self.name
 
+class Service(models.Model):
+    name = models.CharField(max_length=255)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    doctor = models.ForeignKey('Doctor', on_delete=CASCADE, related_name='services')
+
+    def __str__(self):
+        return f"{self.name} (${self.price}) - {self.doctor.name}"
 
 
 class Patient(models.Model):
@@ -55,13 +62,12 @@ class Patient(models.Model):
 
 
 class PatientResult(models.Model):
-    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='results')
-    title = models.CharField(max_length=255)  # e.g., "Blood Test", "MRI"
-    file = models.FileField(upload_to='patient_results/')
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    result_file = models.FileField(upload_to="uploads/results/" , null=True, blank=True)
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"{self.title} for {self.patient}"
 
 
 
@@ -85,38 +91,39 @@ class Appointment(models.Model):
         return f"{self.patient} with {self.doctor}"
 
 
-class Payment(models.Model):
-    appointment = models.ForeignKey(Appointment, on_delete=models.CASCADE)
-    amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
-    timestamp = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"${self.amount_paid} for {self.appointment}"
 
 
 class TreatmentRoom(models.Model):
-    name = models.CharField(max_length=100)
-    capacity = models.IntegerField(default=1)
-    is_busy = models.BooleanField(default=False)
+    name = models.CharField(max_length=100)  # e.g. '1-room', '2-room'
+    capacity = models.PositiveIntegerField(default=1)
+    floor = models.IntegerField(default=1)
+    price_per_day = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     def __str__(self):
-        return self.name
-
+        return f"{self.name} (for {self.capacity} patients)"
 
 class TreatmentRegistration(models.Model):
-    appointment = models.ForeignKey(Appointment, on_delete=models.CASCADE)
-    treatment_room = models.ForeignKey(TreatmentRoom, on_delete=models.CASCADE)
-    payment_amount = models.DecimalField(max_digits=10, decimal_places=2)
-    registered_at = models.DateTimeField(auto_now_add=True)
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
+    room = models.ForeignKey(TreatmentRoom, on_delete=models.SET_NULL, null=True)
+    appointment = models.ForeignKey(Appointment, on_delete=models.SET_NULL, null=True)  # ✅ Add this
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    discharged_at = models.DateTimeField(null=True, blank=True)
+    total_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
-    def __str__(self):
-        return f"{self.appointment.patient} in {self.treatment_room}"
+    def is_active(self):
+        return self.discharged_at is None
 
-    def total_paid(self):
-        return sum(p.amount_paid for p in Payment.objects.filter(appointment=self.appointment))
 
-    def amount_due(self):
-        return max(0, self.payment_amount - self.total_paid())
+# class TreatmentRegistration(models.Model):
+#     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
+#     room = models.ForeignKey(TreatmentRoom, on_delete=models.SET_NULL, null=True)
+#     registered_at = models.DateTimeField(auto_now_add=True)
+#     discharged_at = models.DateTimeField(null=True, blank=True)
+#     total_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+#
+#     def is_active(self):
+#         return self.discharged_at is None
 
 
 
@@ -135,3 +142,14 @@ class VerificationCode(Model):
     @staticmethod
     def generate_code():
         return str(random.randint(100000, 999999))
+
+class Payment(models.Model):
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, null=True, blank=True)
+    consultation_paid = models.BooleanField(default=False)
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    debt = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+
+

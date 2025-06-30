@@ -5,6 +5,7 @@ import redis
 from django.contrib.auth import authenticate
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.core.exceptions import ValidationError
+from django.db.models import OneToOneField, CASCADE, ForeignKey
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from rest_framework import serializers
@@ -14,7 +15,7 @@ from rest_framework.serializers import ModelSerializer
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from root import settings
-from .models import User, Doctor, Patient, PatientResult
+from .models import User, Doctor, Patient, PatientResult, Service
 
 redis_url = urlparse(settings.CELERY_BROKER_URL)
 
@@ -176,18 +177,52 @@ from rest_framework import serializers
 from .models import Patient, Doctor, Appointment, Payment, TreatmentRoom, TreatmentRegistration
 
 
+
+
+
+class DoctorCreateSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(write_only=True)
+    password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = Doctor
+        fields = ['id', 'name', 'specialty', 'email', 'password']
+
+    def create(self, validated_data):
+        email = validated_data.pop("email")
+        password = validated_data.pop("password")
+
+        # Create user with is_doctor=True
+        user = User.objects.create_user(
+            email=email,
+            password=password,
+            is_doctor=True,
+            is_active=True,  # Optionally auto-verify
+        )
+
+        # Link to doctor
+        doctor = Doctor.objects.create(user=user, **validated_data)
+        return doctor
+
 class DoctorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Doctor
-        fields = '__all__'
+        fields = ['id', 'name', 'specialty']
 
+class ServiceSerializer(serializers.ModelSerializer):
+    doctor = DoctorSerializer(read_only=True)  # ✅ Shows doctor info
+    doctor_id = serializers.PrimaryKeyRelatedField(queryset=Doctor.objects.all(), source='doctor', write_only=True)
+
+    class Meta:
+        model = Service
+        fields = ['id', 'name', 'price', 'doctor', 'doctor_id']
 
 class PatientSerializer(serializers.ModelSerializer):
     latest_doctor = serializers.SerializerMethodField()
 
     class Meta:
         model = Patient
-        fields = ['id', 'first_name', 'last_name', 'phone', 'created_at', 'latest_doctor']
+        fields = ['id', 'first_name', 'last_name', 'phone', 'address', 'created_at', 'latest_doctor']
 
     def get_latest_doctor(self, patient):
         latest_appointment = Appointment.objects.filter(patient=patient).order_by('-created_at').first()
@@ -215,11 +250,21 @@ class PaymentSerializer(serializers.ModelSerializer):
 
 
 class TreatmentRoomSerializer(serializers.ModelSerializer):
+    patients = serializers.SerializerMethodField()
+
     class Meta:
         model = TreatmentRoom
         fields = '__all__'
 
-
+    def get_patients(self, obj):
+        active_regs = obj.treatmentregistration_set.filter(discharged_at__isnull=True)
+        return [
+            {
+                "id": reg.patient.id,
+                "first_name": reg.patient.first_name,
+                "last_name": reg.patient.last_name
+            } for reg in active_regs
+        ]
 
 class TreatmentRegistrationSerializer(serializers.ModelSerializer):
     appointment = AppointmentSerializer(read_only=True)
@@ -247,3 +292,67 @@ class PatientResultSerializer(serializers.ModelSerializer):
         model = PatientResult
         fields = '__all__'
 
+
+class DoctorUserCreateSerializer(serializers.Serializer):
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+    date_of_birth = serializers.DateField()
+    phone_number = serializers.CharField()
+    specialty = serializers.CharField()
+
+    def create(self, validated_data):
+        # Extract user fields
+        user = User.objects.create_user(
+            first_name=validated_data["first_name"],
+            last_name=validated_data["last_name"],
+            email=validated_data["email"],
+            password=validated_data["password"],
+            date_of_birth=validated_data["date_of_birth"],
+            phone_number=validated_data["phone_number"],
+            is_doctor=True,
+            is_active=True  # Optional: auto-activate
+        )
+        # Create doctor profile
+        doctor = Doctor.objects.create(
+            user=user,
+            name=f"{user.first_name} {user.last_name}",
+            specialty=validated_data["specialty"]
+        )
+        return doctor
+
+
+
+class UserForDoctorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'first_name', 'last_name', 'email', 'date_of_birth', 'phone_number']
+
+class DoctorDetailSerializer(serializers.ModelSerializer):
+    user = UserForDoctorSerializer()
+
+    class Meta:
+        model = Doctor
+        fields = ['id', 'user', 'specialty']
+
+    def update(self, instance, validated_data):
+        # Handle nested user data
+        user_data = validated_data.pop('user', {})
+        for attr, value in user_data.items():
+            setattr(instance.user, attr, value)
+        instance.user.save()
+
+        # Update doctor-specific fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+
+
+
+class RoomStatusSerializer(serializers.Serializer):
+    room_id = serializers.IntegerField()
+    room_name = serializers.CharField()
+    capacity = serializers.IntegerField()
+    patients = serializers.ListField(child=serializers.CharField())

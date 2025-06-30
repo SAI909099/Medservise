@@ -63,70 +63,111 @@ Room utilization
 
 Daily registration logs
 
-👨‍⚕️ Doctor Features
-4. Doctor Treatment View
-Show:
-
-Patient reason
-
-Visit date/time
-
-History of visits (optional)
-
-Allow the doctor to:
-
-Write treatment notes
-
-Prescribe medication (optional)
-
-Mark patient as “Treated”
-
-📁 Patient History (optional but useful)
-Maintain a simple record of past visits per patient
-
-Can be useful for follow-ups or ongoing conditions
-
-🔐 Authentication and Role-Based Access (if not already done)
-Use JWT or session auth
-
-Roles:
-
-receptionist (only registration and room control)
-
-doctor (only their queue and patients)
-
-admin (all access)
-
-🌐 Optional Extras (for production-ready app)
-✅ Responsive UI with Bootstrap 5 or Tailwind
-
-🔍 Search/filter patients or doctors
-
-📦 Export reports as PDF or Excel
-
-🔔 Notifications for doctors when a new patient is assigned
-
-Suggested Next Step for You
-✅ Since you already have doctor and registration sides, your next practical feature might be:
-
-Doctor queue + patient detail view + room assignment
-
-Let me know which one you’d like to build next — I can help step-by-step with Django APIs, Bootstrap UI, and JavaScript for the frontend.
 
 
-qabulxona
+qabulxona ?
 kassa  ->  vazvrat X
- bug`alteria -> admin    pul chiqish
- bemor kelgan kundan hisoblash
- soat 9 dan kun boshlanadi
+ bug`alteria -> admin    pul chiqish  X
+ bemor kelgan kundan hisoblash X
+ soat 9 dan kun boshlanadi X
 
-doctor page
-narx lar page
+doctor page ✅
+narx lar page ?
+
 1 yil saqlanish malumot
 
-arxiv page
-    1 yillik malumotlar bemorning malumotlari
-        ism , familia, yoshi, adressi qachan kelgani
+arxiv page ✅
+
+    1 yillik malumotlar bemorning malumotlari ✅
+        ism , familia, yoshi, adressi qachan kelgani ✅
 
 
-service page
+service page ?
+
+
+info upload ✅
+
+
+
+
+Bo`lgan ishlar :
+    Doctor page  ✅
+    archive page   ✅
+    patiend details ✅
+    upload patiend details ✅
+    Doctor add page ✅
+    add treatment room ✅
+    register treatmentroom ✅
+
+
+qilish kere :
+
+    register treatment room ni registration page bilan birlash tirish kerak
+
+    admin panel
+        doctor va service lar qo`shish
+        narx lar page
+
+
+
+
+    yotoq page
+    yotoq ko`rinish bilan bir xil va ichidegi kassalar  isimi ko`rinish kerak
+    yotoqdagi odamlarni control qilish ya ni o`chirish qo`shish va ko`rish
+
+    admin panel
+        doctor va service lar qo`shish
+        narx lar page
+
+    register page
+
+    service page
+
+    qabulxona ?
+
+    kassa  ->  vazvrat X
+
+    bug`alteria -> admin    pul chiqish  X
+
+    bemor kelgan kundan hisoblash X
+
+    soat 9 dan kun boshlanadi X
+
+    chek chiqarish X
+
+    registerga check knopka qo`yish to`lagan to`lamagan ligini bilish uchun X
+
+    registratsia monitorida ochered ko`rsatish
+
+
+    📊 Patient Summary View
+
+Build a patient summary page API that returns:
+
+Personal info
+
+Past appointments
+
+Treatment room history
+
+Uploaded results
+
+Payments + total debt
+
+This will help in the doctor or admin dashboards.
+
+🧾 Monthly Billing Report
+You already have payment + treatment registration data. Add an endpoint to:
+
+Export all paid treatments within a date range
+
+Filter by doctor or service
+
+Include total earnings per doctor
+
+🔐 Protect Sensitive APIs
+Ensure views like /appointments/, /payments/, /results/ are filtered by user role:
+
+Patients should see only their data (if you support patient login in future).
+
+Doctors see only their appointments and patients.

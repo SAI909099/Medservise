@@ -46,7 +46,7 @@ class DoctorAdmin(admin.ModelAdmin):
     inlines = [AppointmentInline]
 
     def queued_patients_count(self, obj):
-        return obj.appointment_set.filter(status='queued').count()
+        return obj.appointments.filter(status="queued").count()
     queued_patients_count.short_description = "Patients Waiting"
 
 # ---------------- Register all models ---------------- #

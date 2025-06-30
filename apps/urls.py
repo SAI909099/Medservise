@@ -5,7 +5,9 @@ from apps.views import RegisterAPIView, VerifyEmailAPIView, LoginAPIView, UserIn
     AppointmentListCreateAPIView, TreatmentRoomListCreateAPIView, TreatmentRegistrationListCreateAPIView, \
     PaymentListCreateAPIView, PatientRegistrationAPIView, DoctorAppointmentListAPIView, DoctorAppointmentDetailAPIView, \
     AssignPatientToRoomAPIView, AssignRoomAPIView, TreatmentRoomDetailAPIView, PatientResultListCreateAPIView, \
-    PatientResultDetailAPIView, PatientDetailAPIView, PatientListAPIView
+    PatientResultDetailAPIView, PatientDetailAPIView, PatientListAPIView, ServiceListCreateAPIView, \
+    DoctorRegistrationAPIView, CreateDoctorWithUserView, DoctorDetailView, RoomStatusAPIView, TreatmentRoomList, \
+    RecentPatientsView
 
 urlpatterns = [
     path('register/', RegisterAPIView.as_view(), name='register'),
@@ -46,5 +48,18 @@ urlpatterns = [
     path('patients/', PatientListAPIView.as_view(), name='patient-list'),
     path('patient-results/', PatientResultListCreateAPIView.as_view(), name='patient-result-list'),
     path('patient-results/<int:pk>/', PatientResultDetailAPIView.as_view(), name='patient-result-detail'),
+
+    path('services/', ServiceListCreateAPIView.as_view(), name='service-list-create'),
+
+    path("doctor-register/", DoctorRegistrationAPIView.as_view(), name="doctor-register"),
+    path("create-doctor/", CreateDoctorWithUserView.as_view(), name="create-doctor"),
+    path('doctor-list/<int:pk>/', DoctorDetailView.as_view(), name='doctor-detail'),
+
+    path('room-status/', RoomStatusAPIView.as_view(), name='room-status'),
+
+    path('recent-patients/', RecentPatientsView.as_view(), name='recent-patients'),
+    path('treatment-rooms/', TreatmentRoomList.as_view()),
+
+    path('assign-patient-to-room/', AssignRoomAPIView.as_view(), name='assign-room'),
 
 ]

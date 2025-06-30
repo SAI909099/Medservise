@@ -1,10 +1,13 @@
 import random
 import string
+from datetime import timedelta
 
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.utils import timezone
 from django.utils.http import urlsafe_base64_decode
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
+from rest_framework.decorators import api_view
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.generics import GenericAPIView, ListCreateAPIView, RetrieveUpdateDestroyAPIView, RetrieveAPIView, \
     ListAPIView
@@ -14,11 +17,12 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.models import User, Doctor, Patient, Appointment, Payment, TreatmentRoom, \
-    TreatmentRegistration, PatientResult
+    TreatmentRegistration, PatientResult, Service
 from apps.serializers import ForgotPasswordSerializer, PasswordResetConfirmSerializer, RegisterSerializer, \
     LoginSerializer, LoginUserModelSerializer, UserInfoSerializer, DoctorSerializer, \
     PatientSerializer, AppointmentSerializer, PaymentSerializer, TreatmentRoomSerializer, \
-    TreatmentRegistrationSerializer, PatientResultSerializer
+    TreatmentRegistrationSerializer, PatientResultSerializer, ServiceSerializer, DoctorCreateSerializer, \
+    DoctorUserCreateSerializer, DoctorDetailSerializer
 from apps.tasks import send_verification_email
 
 
@@ -275,29 +279,29 @@ class AssignPatientToRoomAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        appointment_id = request.data.get("appointment_id")
+        patient_id = request.data.get("patient_id")
         room_id = request.data.get("room_id")
 
-        if not appointment_id or not room_id:
-            return Response({"error": "Both appointment_id and room_id are required"}, status=400)
+        if not patient_id or not room_id:
+            return Response({"error": "Both patient_id and room_id are required"}, status=400)
 
         try:
-            appointment = Appointment.objects.get(id=appointment_id)
-        except Appointment.DoesNotExist:
-            return Response({"error": "Appointment not found"}, status=404)
+            patient = Patient.objects.get(id=patient_id)
+        except Patient.DoesNotExist:
+            return Response({"error": "Patient not found"}, status=404)
 
         try:
             room = TreatmentRoom.objects.get(id=room_id)
         except TreatmentRoom.DoesNotExist:
             return Response({"error": "Treatment room not found"}, status=404)
 
-        if room.is_busy:
-            return Response({"error": "This room is already busy"}, status=400)
+        # Check if room is full
+        current_occupants = TreatmentRegistration.objects.filter(room=room, discharged_at__isnull=True).count()
+        if current_occupants >= room.capacity:
+            return Response({"error": "Room is full"}, status=400)
 
-        # Create treatment registration and mark room busy
-        TreatmentRegistration.objects.create(appointment=appointment, room=room)
-        room.is_busy = True
-        room.save()
+        # Create registration
+        TreatmentRegistration.objects.create(patient=patient, room=room)
 
         return Response({"message": "Patient assigned to room successfully"}, status=200)
 
@@ -306,41 +310,49 @@ class AssignRoomAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        appointment_id = request.data.get("appointment_id")
+        print("📥 Incoming data:", request.data)
+
+        patient_id = request.data.get("patient_id")
         room_id = request.data.get("room_id")
 
-        if not appointment_id or not room_id:
-            return Response({"error": "Missing appointment_id or room_id"}, status=400)
+        if not patient_id or not room_id:
+            print("❌ Missing data")
+            return Response({"error": "Missing patient_id or room_id"}, status=400)
 
         try:
-            appointment = Appointment.objects.get(id=appointment_id)
+            patient = Patient.objects.get(id=patient_id)
+            print("✅ Found patient:", patient)
+
             room = TreatmentRoom.objects.get(id=room_id)
+            print("✅ Found room:", room)
 
-            if room.is_busy:
-                return Response({"error": "Room is already occupied"}, status=400)
+            appointment = Appointment.objects.filter(patient=patient).latest("created_at")
+            print("✅ Latest appointment:", appointment)
 
-            # ✅ Create the registration
             TreatmentRegistration.objects.create(
                 appointment=appointment,
-                treatment_room=room,
-                payment_amount=0  # adjust this as needed
+                patient=patient,
+                room=room
             )
 
-            # ✅ Update room status and appointment status
-            room.is_busy = True
-            room.save()
+            return Response({"message": "Patient assigned successfully"}, status=200)
 
-            appointment.status = "assigned"
-            appointment.save()
-
-            return Response({"message": "Patient assigned to room successfully."}, status=200)
+        except Patient.DoesNotExist:
+            print("❌ Patient not found")
+            return Response({"error": "Patient not found"}, status=404)
 
         except Appointment.DoesNotExist:
-            return Response({"error": "Appointment not found"}, status=404)
+            print("❌ No appointment found for patient")
+            return Response({"error": "No appointment found for patient"}, status=404)
+
         except TreatmentRoom.DoesNotExist:
+            print("❌ Room not found")
             return Response({"error": "Room not found"}, status=404)
+
         except Exception as e:
+            print("❌ Unexpected error:", str(e))
             return Response({"error": str(e)}, status=500)
+
 
 
 @extend_schema(tags=['Treatment'])
@@ -353,6 +365,13 @@ class PatientResultListCreateAPIView(ListCreateAPIView):
     queryset = PatientResult.objects.all()
     serializer_class = PatientResultSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        patient_id = self.request.query_params.get("patient")
+        if patient_id:
+            queryset = queryset.filter(patient_id=patient_id)
+        return queryset
 
 class PatientResultDetailAPIView(RetrieveUpdateDestroyAPIView):
     queryset = PatientResult.objects.all()
@@ -368,3 +387,75 @@ class PatientListAPIView(ListAPIView):
     serializer_class = PatientSerializer
     permission_classes = [IsAuthenticated]
 
+
+class ServiceListCreateAPIView(ListCreateAPIView):
+    queryset = Service.objects.select_related('doctor').all()
+    serializer_class = ServiceSerializer
+    permission_classes = [IsAuthenticated]
+
+
+@extend_schema(tags=['Doctor'])
+class DoctorRegistrationAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = DoctorCreateSerializer(data=request.data)
+        if serializer.is_valid():
+            doctor = serializer.save()
+            return Response({"message": "Doctor registered successfully"}, status=201)
+        return Response(serializer.errors, status=400)
+
+
+class CreateDoctorWithUserView(APIView):
+    permission_classes = [IsAuthenticated]  # Optional: or AllowAny
+
+    def post(self, request):
+        serializer = DoctorUserCreateSerializer(data=request.data)
+        if serializer.is_valid():
+            doctor = serializer.save()
+            return Response({"message": "Doctor created successfully."})
+        return Response(serializer.errors, status=400)
+
+
+class DoctorDetailView(RetrieveUpdateDestroyAPIView):
+    queryset = Doctor.objects.all()
+    serializer_class = DoctorDetailSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class RoomStatusAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        data = []
+        rooms = TreatmentRoom.objects.all()
+        for room in rooms:
+            active_regs = TreatmentRegistration.objects.filter(room=room, discharged_at__isnull=True)
+            patient_names = [f"{reg.patient.first_name} {reg.patient.last_name}" for reg in active_regs]
+            data.append({
+                "room_id": room.id,
+                "room_name": room.name,
+                "capacity": room.capacity,
+                "patients": patient_names
+            })
+        return Response(data)
+
+
+@property
+def is_active(self):
+    return self.discharged_at is None
+
+
+
+class RecentPatientsView(ListAPIView):
+    serializer_class = PatientSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        two_days_ago = timezone.now() - timedelta(days=2)
+        return Patient.objects.filter(created_at__gte=two_days_ago)
+
+class TreatmentRoomList(ListAPIView):
+    queryset = TreatmentRoom.objects.all()
+    serializer_class = TreatmentRoomSerializer
+    permission_classes = [IsAuthenticated]

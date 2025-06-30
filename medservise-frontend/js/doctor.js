@@ -33,13 +33,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 <button class="btn btn-sm btn-primary assign-btn" data-app-id="${app.id}">Assign</button>
                 <button class="btn btn-sm btn-success" onclick="markDone(${app.id})">Done</button>`
               : ''}
+            <button class="btn btn-sm btn-info" onclick="viewInfo(${app.patient.id})">Info</button>
             <button class="btn btn-sm btn-danger" onclick="deleteApp(${app.id})">Delete</button>
           </td>
         `;
         tableBody.appendChild(row);
       });
 
-      // Fetch available rooms and populate dropdowns
+      // ✅ Populate available rooms for dropdown
       fetch("http://localhost:8000/api/v1/treatment-rooms/", {
         headers: { "Authorization": `Bearer ${token}` }
       })
@@ -57,12 +58,17 @@ document.addEventListener("DOMContentLoaded", () => {
           });
         });
 
-      // Assign room button logic
+      // ✅ Assign room to appointment
       document.querySelectorAll(".assign-btn").forEach(button => {
         button.addEventListener("click", () => {
           const appId = button.getAttribute("data-app-id");
           const select = document.querySelector(`.room-dropdown[data-app-id="${appId}"]`);
           const roomId = select.value;
+
+          if (!roomId) {
+            alert("Please select a room.");
+            return;
+          }
 
           fetch("http://localhost:8000/api/v1/assign-room/", {
             method: "POST",
@@ -83,6 +89,7 @@ document.addEventListener("DOMContentLoaded", () => {
       alert("Could not load appointments.");
     });
 
+  // ✅ Toggle room visibility
   const viewRoomsBtn = document.getElementById("view-rooms-btn");
   if (viewRoomsBtn) {
     viewRoomsBtn.addEventListener("click", function () {
@@ -117,6 +124,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
+// ✅ Done button logic
 function markDone(id) {
   const token = localStorage.getItem("token");
   fetch(`http://localhost:8000/api/v1/my-appointments/${id}/`, {
@@ -129,6 +137,7 @@ function markDone(id) {
   }).then(() => window.location.reload());
 }
 
+// ✅ Delete button logic
 function deleteApp(id) {
   const token = localStorage.getItem("token");
   fetch(`http://localhost:8000/api/v1/my-appointments/${id}/`, {
@@ -139,6 +148,12 @@ function deleteApp(id) {
   }).then(() => window.location.reload());
 }
 
+// ✅ Info button logic → redirect to patient-detail.html with ID
+function viewInfo(patientId) {
+  window.location.href = `patient-detail.html?patient_id=${patientId}`;
+}
+
+// ✅ Logout
 function logout() {
   localStorage.removeItem("token");
   window.location.href = "index.html";

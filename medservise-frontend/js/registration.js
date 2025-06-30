@@ -26,6 +26,23 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
+    doctorSelect.addEventListener("change", function () {
+    const selectedOption = doctorSelect.options[doctorSelect.selectedIndex];
+    const price = parseFloat(selectedOption.dataset.servicePrice || 0);
+    document.getElementById("expected_fee").value = price.toFixed(2);
+    updateAmountOwed();
+  });
+
+  document.getElementById("amount_paid").addEventListener("input", updateAmountOwed);
+
+  function updateAmountOwed() {
+    const expected = parseFloat(document.getElementById("expected_fee").value || 0);
+    const paid = parseFloat(document.getElementById("amount_paid").value || 0);
+    const owed = Math.max(expected - paid, 0);
+    document.getElementById("amount_owed").value = owed.toFixed(2);
+  }
+
+
   // Load rooms
   function loadRooms() {
     fetch("http://localhost:8000/api/v1/treatment-rooms/", {
@@ -106,8 +123,11 @@ document.addEventListener("DOMContentLoaded", () => {
       phone: document.getElementById("phone").value,
       address: document.getElementById("address").value,
       doctor_id: doctorSelect.value,
-      reason: document.getElementById("reason").value
+      reason: document.getElementById("reason").value,
+      amount_paid: parseFloat(document.getElementById("amount_paid").value),
+      amount_owed: parseFloat(document.getElementById("amount_owed").value)
     };
+
 
     fetch("http://localhost:8000/api/v1/register-patient/", {
       method: "POST",
@@ -131,3 +151,5 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   });
 });
+
+
