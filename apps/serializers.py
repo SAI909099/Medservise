@@ -183,34 +183,34 @@ from .models import Patient, Doctor, Appointment, Payment, TreatmentRoom, Treatm
 class DoctorCreateSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(write_only=True)
     password = serializers.CharField(write_only=True)
+    consultation_price = serializers.DecimalField(max_digits=10, decimal_places=2)
 
     class Meta:
         model = Doctor
-        fields = ['id', 'name', 'specialty', 'email', 'password']
+        fields = ['id', 'name', 'specialty', 'consultation_price', 'email', 'password']
 
     def create(self, validated_data):
         email = validated_data.pop("email")
         password = validated_data.pop("password")
 
-        # Create user with is_doctor=True
         user = User.objects.create_user(
             email=email,
             password=password,
             is_doctor=True,
-            is_active=True,  # Optionally auto-verify
+            is_active=True,
         )
 
-        # Link to doctor
+        # ✅ consultation_price is now included
         doctor = Doctor.objects.create(user=user, **validated_data)
         return doctor
 
 class DoctorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Doctor
-        fields = ['id', 'name', 'specialty']
+        fields = ['id', 'name', 'specialty','consultation_price']
 
 class ServiceSerializer(serializers.ModelSerializer):
-    doctor = DoctorSerializer(read_only=True)  # ✅ Shows doctor info
+    doctor = DoctorSerializer(read_only=True)
     doctor_id = serializers.PrimaryKeyRelatedField(queryset=Doctor.objects.all(), source='doctor', write_only=True)
 
     class Meta:
@@ -331,10 +331,11 @@ class UserForDoctorSerializer(serializers.ModelSerializer):
 
 class DoctorDetailSerializer(serializers.ModelSerializer):
     user = UserForDoctorSerializer()
+    consultation_price = serializers.DecimalField(max_digits=10, decimal_places=2)
 
     class Meta:
         model = Doctor
-        fields = ['id', 'user', 'specialty']
+        fields = ['id', 'user', 'specialty',  'consultation_price']
 
     def update(self, instance, validated_data):
         # Handle nested user data

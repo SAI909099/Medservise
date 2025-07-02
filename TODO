@@ -99,14 +99,21 @@ Bo`lgan ishlar :
     add treatment room ✅
     register treatmentroom ✅
 
+    admin panel ❌
+        narxlar page ✅
+        doctor va service lar qo`shish ✅
+    Doctors see only their appointments and patients.✅
 
 qilish kere :
 
+    Admin panelga statistika
+
+
+
+
     register treatment room ni registration page bilan birlash tirish kerak
 
-    admin panel
-        doctor va service lar qo`shish
-        narx lar page
+
 
 
 
@@ -115,13 +122,8 @@ qilish kere :
     yotoq ko`rinish bilan bir xil va ichidegi kassalar  isimi ko`rinish kerak
     yotoqdagi odamlarni control qilish ya ni o`chirish qo`shish va ko`rish
 
-    admin panel
-        doctor va service lar qo`shish
-        narx lar page
 
-    register page
 
-    service page
 
     qabulxona ?
 
@@ -170,4 +172,3 @@ Ensure views like /appointments/, /payments/, /results/ are filtered by user rol
 
 Patients should see only their data (if you support patient login in future).
 
-Doctors see only their appointments and patients.

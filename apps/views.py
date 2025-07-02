@@ -159,25 +159,27 @@ class PatientRegistrationAPIView(APIView):
         responses={201: AppointmentSerializer}
     )
     def post(self, request):
-        # Extract patient data
         patient_data = {
             "first_name": request.data.get("first_name"),
             "last_name": request.data.get("last_name"),
             "phone": request.data.get("phone"),
-            "address": request.data.get("address")
+            "address": request.data.get("address"),
+            "age": request.data.get("age"),
         }
-        reason = request.data.get("reason")
         doctor_id = request.data.get("doctor_id")
+        reason = request.data.get("reason")
+        services = request.data.get("services", [])
+        amount_paid = request.data.get("amount_paid", 0)
+        amount_owed = request.data.get("amount_owed", 0)
 
         patient_serializer = PatientSerializer(data=patient_data)
         if patient_serializer.is_valid():
             patient = patient_serializer.save()
 
-            # Create appointment
             try:
                 doctor = Doctor.objects.get(id=doctor_id)
             except Doctor.DoesNotExist:
-                return Response({"error": "Doctor not found"}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"error": "Doctor not found"}, status=404)
 
             appointment = Appointment.objects.create(
                 patient=patient,
@@ -185,9 +187,28 @@ class PatientRegistrationAPIView(APIView):
                 reason=reason,
                 status='queued'
             )
-            return Response(AppointmentSerializer(appointment).data, status=status.HTTP_201_CREATED)
 
-        return Response(patient_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            # Save services
+            for service_id in services:
+                try:
+                    service = Service.objects.get(id=service_id)
+                    appointment.services.add(service)
+                except Service.DoesNotExist:
+                    pass
+
+            # Save payment
+            Payment.objects.create(
+                appointment=appointment,
+                amount_paid=amount_paid,
+                amount_due=amount_owed,
+                status='partial' if amount_owed > 0 else 'paid'
+            )
+
+            return Response(AppointmentSerializer(appointment).data, status=201)
+
+        return Response(patient_serializer.errors, status=400)
+
+
 @extend_schema(tags=['Doctor'])
 class DoctorListCreateAPIView(ListCreateAPIView):
     queryset = Doctor.objects.all()
@@ -394,15 +415,20 @@ class ServiceListCreateAPIView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
 
+class ServiceDetailAPIView(RetrieveUpdateDestroyAPIView):
+    queryset = Service.objects.all()
+    serializer_class = ServiceSerializer
+    permission_classes = [IsAuthenticated]
+
 @extend_schema(tags=['Doctor'])
 class DoctorRegistrationAPIView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        serializer = DoctorCreateSerializer(data=request.data)
+        serializer = DoctorCreateSerializer(data=request.data)  # ✅ USE THIS INSTEAD
         if serializer.is_valid():
             doctor = serializer.save()
-            return Response({"message": "Doctor registered successfully"}, status=201)
+            return Response({"message": "Doctor registered successfully."}, status=201)
         return Response(serializer.errors, status=400)
 
 
@@ -459,3 +485,4 @@ class TreatmentRoomList(ListAPIView):
     queryset = TreatmentRoom.objects.all()
     serializer_class = TreatmentRoomSerializer
     permission_classes = [IsAuthenticated]
+

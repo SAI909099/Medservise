@@ -10,16 +10,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const serviceForm = document.getElementById("service-form");
   const doctorSelect = document.getElementById("doctor-select");
   const serviceList = document.getElementById("service-list");
+  const doctorList = document.getElementById("doctor-list");
 
-  // 🔄 Load doctors into dropdown
   function loadDoctors() {
     fetch("http://localhost:8000/api/v1/doctor-list/", {
-      headers: {
-        "Authorization": `Bearer ${token}`
-      }
+      headers: { "Authorization": `Bearer ${token}` }
     })
       .then(res => res.json())
       .then(doctors => {
+        // Populate dropdown
         doctorSelect.innerHTML = '<option disabled selected>Select Doctor</option>';
         doctors.forEach(doc => {
           const opt = document.createElement("option");
@@ -27,15 +26,29 @@ document.addEventListener("DOMContentLoaded", () => {
           opt.textContent = `${doc.name} (${doc.specialty})`;
           doctorSelect.appendChild(opt);
         });
+
+        // Populate doctor list
+        doctorList.innerHTML = "";
+        doctors.forEach(doc => {
+          const li = document.createElement("li");
+          li.className = "list-group-item d-flex justify-content-between align-items-center";
+          li.innerHTML = `
+            <div>
+              <strong>${doc.name}</strong> | ${doc.specialty} | ${doc.consultation_price || 0} so'm
+            </div>
+            <div>
+              <button class="btn btn-sm btn-warning me-2" onclick="editDoctor(${doc.id})">Edit</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteDoctor(${doc.id})">Delete</button>
+            </div>
+          `;
+          doctorList.appendChild(li);
+        });
       });
   }
 
-  // 🔄 Load existing services
   function loadServices() {
     fetch("http://localhost:8000/api/v1/services/", {
-      headers: {
-        "Authorization": `Bearer ${token}`
-      }
+      headers: { "Authorization": `Bearer ${token}` }
     })
       .then(res => res.json())
       .then(services => {
@@ -43,16 +56,17 @@ document.addEventListener("DOMContentLoaded", () => {
         services.forEach(service => {
           const li = document.createElement("li");
           li.className = "list-group-item d-flex justify-content-between align-items-center";
-          li.textContent = `${service.name} - $${service.price} (Dr. ${service.doctor?.name || "Unknown"})`;
+          li.textContent = `${service.name} - ${service.price} so'm (Dr. ${service.doctor?.name || "Unknown"})`;
           serviceList.appendChild(li);
         });
       });
   }
 
+  // Initial load
   loadDoctors();
   loadServices();
 
-  // 🩺 Register new doctor
+  // Doctor Registration
   doctorForm.addEventListener("submit", e => {
     e.preventDefault();
 
@@ -60,44 +74,30 @@ document.addEventListener("DOMContentLoaded", () => {
     const email = document.getElementById("doctor-email").value.trim();
     const password = document.getElementById("doctor-password").value;
     const specialty = document.getElementById("doctor-specialty").value.trim();
+    const consultation_price = parseFloat(document.getElementById("doctor-price").value);
 
-    // First create User account
-    fetch("http://localhost:8000/api/v1/register/", {
+    fetch("http://localhost:8000/api/v1/doctor-register/", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
       body: JSON.stringify({
-        first_name: name,
-        last_name: "Doctor",
+        name,
         email,
         password,
-        confirm_password: password,
-        date_of_birth: "1980-01-01",
-        phone_number: "0000000000"
+        specialty,
+        consultation_price
       })
     })
       .then(res => {
-        if (!res.ok) throw new Error("❌ Failed to register doctor account");
-        return res.json();
-      })
-      .then(() => {
-        // Then create doctor profile
-        return fetch("http://localhost:8000/api/v1/doctor-list/", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
-          body: JSON.stringify({ name, specialty })
-        });
-      })
-      .then(res => {
-        if (!res.ok) throw new Error("❌ Failed to create doctor profile");
+        if (!res.ok) throw new Error("❌ Failed to register doctor");
         return res.json();
       })
       .then(() => {
         doctorForm.reset();
         loadDoctors();
-        alert("✅ Doctor registered and added successfully");
+        alert("✅ Doctor registered successfully");
       })
       .catch(err => {
         alert(err.message || "❌ Could not register doctor");
@@ -105,7 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   });
 
-  // ➕ Create a new service
+  // Service Creation
   serviceForm.addEventListener("submit", e => {
     e.preventDefault();
 
@@ -117,7 +117,7 @@ document.addEventListener("DOMContentLoaded", () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`  // ✅ Secure service creation
+        "Authorization": `Bearer ${token}`
       },
       body: JSON.stringify({ name, price, doctor_id })
     })
@@ -135,4 +135,48 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error(err);
       });
   });
+
+  // Expose to global scope
+  window.editDoctor = (id) => {
+    const newPrice = prompt("Enter new consultation price:");
+    if (!newPrice) return;
+
+    fetch(`http://localhost:8000/api/v1/doctor-list/${id}/`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ consultation_price: parseFloat(newPrice) })
+    })
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to update doctor");
+        return res.json();
+      })
+      .then(() => {
+        loadDoctors();
+        alert("✅ Doctor updated");
+      })
+      .catch(console.error);
+  };
+
+  window.deleteDoctor = (id) => {
+    if (!confirm("Are you sure you want to delete this doctor?")) return;
+
+    fetch(`http://localhost:8000/api/v1/doctor-list/${id}/`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    })
+      .then(res => {
+        if (res.ok) {
+          loadDoctors();
+          alert("🗑️ Doctor deleted");
+        } else {
+          throw new Error("Delete failed");
+        }
+      })
+      .catch(console.error);
+  };
 });

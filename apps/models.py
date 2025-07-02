@@ -35,6 +35,7 @@ class Doctor(models.Model):
     user = OneToOneField(User, on_delete=models.CASCADE, blank=True, null=True)
     name = models.CharField(max_length=100)
     specialty = models.CharField(max_length=100)
+    consultation_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
     def __str__(self):
         return self.name
@@ -85,6 +86,7 @@ class Appointment(models.Model):
     referred_by = models.ForeignKey(Doctor, on_delete=models.SET_NULL, null=True, blank=True, related_name='referred_appointments')
     reason = models.TextField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='queued')
+    services = models.ManyToManyField('Service', blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -115,22 +117,6 @@ class TreatmentRegistration(models.Model):
         return self.discharged_at is None
 
 
-# class TreatmentRegistration(models.Model):
-#     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
-#     room = models.ForeignKey(TreatmentRoom, on_delete=models.SET_NULL, null=True)
-#     registered_at = models.DateTimeField(auto_now_add=True)
-#     discharged_at = models.DateTimeField(null=True, blank=True)
-#     total_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-#
-#     def is_active(self):
-#         return self.discharged_at is None
-
-
-
-#     -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-///-/--/-//-/-/-//--//-/-/-/-/--//-/-/-/-/-/-/-/-
-
-
-
 class VerificationCode(Model):
     email = EmailField(unique=True)
     code = CharField(max_length=6)
@@ -144,12 +130,11 @@ class VerificationCode(Model):
         return str(random.randint(100000, 999999))
 
 class Payment(models.Model):
-    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, null=True, blank=True)
-    consultation_paid = models.BooleanField(default=False)
-    amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    debt = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    appointment = models.OneToOneField(Appointment, on_delete=models.CASCADE, related_name="payment")
+    amount_due = models.DecimalField(max_digits=10, decimal_places=2)
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=[('paid', 'Paid'), ('unpaid', 'Unpaid')])
     created_at = models.DateTimeField(auto_now_add=True)
-
 
 
 

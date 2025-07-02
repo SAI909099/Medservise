@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>💰 Price Management</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+</head>
+<body class="p-4 bg-light">
+<div class="container">
+  <h2>💰 Price Control Panel</h2>
+
+  <!-- Doctors -->
+  <div class="card mb-4">
+    <div class="card-header bg-info text-white">Doctors Consultation Prices</div>
+    <ul id="doctor-price-list" class="list-group list-group-flush"></ul>
+    <div class="card-footer text-end">
+      <button class="btn btn-success" onclick="confirmDoctorPriceChanges()">✅ Confirm Changes</button>
+    </div>
+  </div>
+
+  <!-- Services -->
+  <div class="card mb-4">
+    <div class="card-header bg-warning">Service Prices</div>
+    <ul id="service-price-list" class="list-group list-group-flush"></ul>
+    <div class="card-footer text-end">
+      <button class="btn btn-success" onclick="confirmServicePriceChanges()">✅ Confirm Changes</button>
+    </div>
+  </div>
+
+  <!-- Treatment Rooms -->
+  <div class="card">
+    <div class="card-header bg-success text-white">Treatment Room Prices</div>
+    <ul id="room-price-list" class="list-group list-group-flush"></ul>
+    <div class="card-footer text-end">
+      <button class="btn btn-success" onclick="confirmRoomPriceChanges()">✅ Confirm Changes</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/price-management.js"></script>
+</body>
+</html>

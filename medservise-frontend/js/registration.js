@@ -6,115 +6,86 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
+  const headers = {
+    Authorization: `Bearer ${token}`
+  };
+
   const doctorSelect = document.getElementById("doctor_id");
+  const serviceContainer = document.getElementById("service-options");
   const form = document.getElementById("patient-form");
-  const roomList = document.getElementById("room-list");
-  const addRoomBtn = document.getElementById("add-room-btn");
-  const newRoomNameInput = document.getElementById("new-room-name");
+
+  let allServices = [];
 
   // Load doctors
-  fetch("http://localhost:8000/api/v1/doctor-list/", {
-    headers: { Authorization: `Bearer ${token}` }
-  })
+  fetch("http://localhost:8000/api/v1/doctor-list/", { headers })
     .then(res => res.json())
     .then(doctors => {
       doctors.forEach(doc => {
         const option = document.createElement("option");
         option.value = doc.id;
-        option.textContent = `${doc.name} (${doc.specialty})`;
+        option.textContent = `${doc.name}`;
+        option.dataset.price = doc.consultation_price;
         doctorSelect.appendChild(option);
       });
     });
 
-    doctorSelect.addEventListener("change", function () {
-    const selectedOption = doctorSelect.options[doctorSelect.selectedIndex];
-    const price = parseFloat(selectedOption.dataset.servicePrice || 0);
-    document.getElementById("expected_fee").value = price.toFixed(2);
-    updateAmountOwed();
+  // Load all services
+  fetch("http://localhost:8000/api/v1/services/", { headers })
+    .then(res => res.json())
+    .then(data => {
+      allServices = data;
+    });
+
+  doctorSelect.addEventListener("change", () => {
+    const selectedDoctorId = parseInt(doctorSelect.value);
+    const selectedPrice = parseFloat(doctorSelect.options[doctorSelect.selectedIndex].dataset.price || 0);
+    document.getElementById("expected_fee").value = selectedPrice.toFixed(2);
+
+    // Show services related to selected doctor
+    serviceContainer.innerHTML = "";
+    const filtered = allServices.filter(s => s.doctor.id === selectedDoctorId);
+
+    filtered.forEach(service => {
+      const div = document.createElement("div");
+      div.className = "form-check";
+      div.innerHTML = `
+        <input class="form-check-input service-checkbox" type="checkbox" 
+               id="service-${service.id}" value="${service.price}" data-id="${service.id}">
+        <label class="form-check-label" for="service-${service.id}">
+          ${service.name} ($${service.price})
+        </label>
+      `;
+      serviceContainer.appendChild(div);
+    });
+
+    updateTotalFee();
   });
 
   document.getElementById("amount_paid").addEventListener("input", updateAmountOwed);
+  serviceContainer.addEventListener("change", updateTotalFee);
+
+  function updateTotalFee() {
+    const doctorFee = parseFloat(document.getElementById("expected_fee").value || 0);
+    const selectedServices = document.querySelectorAll(".service-checkbox:checked");
+    const serviceTotal = Array.from(selectedServices).reduce((sum, el) => sum + parseFloat(el.value), 0);
+    const total = doctorFee + serviceTotal;
+    document.getElementById("total_fee").value = total.toFixed(2);
+    updateAmountOwed();
+  }
 
   function updateAmountOwed() {
-    const expected = parseFloat(document.getElementById("expected_fee").value || 0);
+    const total = parseFloat(document.getElementById("total_fee").value || 0);
     const paid = parseFloat(document.getElementById("amount_paid").value || 0);
-    const owed = Math.max(expected - paid, 0);
+    const owed = Math.max(total - paid, 0);
     document.getElementById("amount_owed").value = owed.toFixed(2);
   }
 
-
-  // Load rooms
-  function loadRooms() {
-    fetch("http://localhost:8000/api/v1/treatment-rooms/", {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(rooms => {
-        roomList.innerHTML = "";
-        rooms.forEach(room => {
-          const div = document.createElement("div");
-          div.className = `card p-2 m-2 text-white ${room.is_busy ? "bg-danger" : "bg-success"}`;
-          div.style.width = "200px";
-          div.innerHTML = `
-            <h5>${room.name}</h5>
-            <p>Status: <strong>${room.is_busy ? "Busy" : "Available"}</strong></p>
-            <button class="btn btn-sm ${room.is_busy ? 'btn-warning' : 'btn-secondary'} mt-2 toggle-room-btn">
-              Mark as ${room.is_busy ? "Available" : "Busy"}
-            </button>
-            <button class="btn btn-sm btn-danger mt-2 delete-room-btn">🗑️ Delete</button>
-          `;
-
-          // Toggle room
-          div.querySelector(".toggle-room-btn").addEventListener("click", () => {
-            fetch(`http://localhost:8000/api/v1/treatment-rooms/${room.id}/`, {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`
-              },
-              body: JSON.stringify({ is_busy: !room.is_busy })
-            })
-              .then(() => loadRooms());
-          });
-
-          // Delete room
-          div.querySelector(".delete-room-btn").addEventListener("click", () => {
-            if (!confirm(`Delete "${room.name}"?`)) return;
-            fetch(`http://localhost:8000/api/v1/treatment-rooms/${room.id}/`, {
-              method: "DELETE",
-              headers: { Authorization: `Bearer ${token}` }
-            }).then(() => loadRooms());
-          });
-
-          roomList.appendChild(div);
-        });
-      });
-  }
-
-  loadRooms();
-
-  // Add new room
-  addRoomBtn.addEventListener("click", () => {
-    const roomName = newRoomNameInput.value.trim();
-    if (!roomName) return alert("Enter a room name.");
-
-    fetch("http://localhost:8000/api/v1/treatment-rooms/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ name: roomName })
-    })
-      .then(() => {
-        newRoomNameInput.value = "";
-        loadRooms();
-      });
-  });
-
-  // Submit patient registration form
-  form.addEventListener("submit", e => {
+  // Submit
+  form.addEventListener("submit", (e) => {
     e.preventDefault();
+
+    const selectedServiceIds = Array.from(document.querySelectorAll(".service-checkbox:checked"))
+      .map(el => parseInt(el.dataset.id));
 
     const data = {
       first_name: document.getElementById("first_name").value,
@@ -122,34 +93,33 @@ document.addEventListener("DOMContentLoaded", () => {
       age: parseInt(document.getElementById("age").value),
       phone: document.getElementById("phone").value,
       address: document.getElementById("address").value,
-      doctor_id: doctorSelect.value,
+      doctor_id: parseInt(doctorSelect.value),
       reason: document.getElementById("reason").value,
       amount_paid: parseFloat(document.getElementById("amount_paid").value),
-      amount_owed: parseFloat(document.getElementById("amount_owed").value)
+      amount_owed: parseFloat(document.getElementById("amount_owed").value),
+      services: selectedServiceIds
     };
-
 
     fetch("http://localhost:8000/api/v1/register-patient/", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
+      headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify(data)
     })
       .then(res => {
-        if (!res.ok) throw new Error("Failed to register");
+        if (!res.ok) throw new Error("Registration failed");
         return res.json();
       })
       .then(() => {
-        alert("✅ Patient registered successfully.");
+        alert("✅ Patient registered successfully");
         form.reset();
+        serviceContainer.innerHTML = "";
+        document.getElementById("expected_fee").value = "";
+        document.getElementById("total_fee").value = "";
+        document.getElementById("amount_owed").value = "";
       })
       .catch(err => {
-        console.error("Registration failed:", err);
-        alert("❌ Could not register patient.");
+        console.error(err);
+        alert("❌ Error: Could not register patient.");
       });
   });
 });
-
-

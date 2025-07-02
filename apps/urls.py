@@ -7,7 +7,7 @@ from apps.views import RegisterAPIView, VerifyEmailAPIView, LoginAPIView, UserIn
     AssignPatientToRoomAPIView, AssignRoomAPIView, TreatmentRoomDetailAPIView, PatientResultListCreateAPIView, \
     PatientResultDetailAPIView, PatientDetailAPIView, PatientListAPIView, ServiceListCreateAPIView, \
     DoctorRegistrationAPIView, CreateDoctorWithUserView, DoctorDetailView, RoomStatusAPIView, TreatmentRoomList, \
-    RecentPatientsView
+    RecentPatientsView, ServiceDetailAPIView
 
 urlpatterns = [
     path('register/', RegisterAPIView.as_view(), name='register'),
@@ -50,6 +50,7 @@ urlpatterns = [
     path('patient-results/<int:pk>/', PatientResultDetailAPIView.as_view(), name='patient-result-detail'),
 
     path('services/', ServiceListCreateAPIView.as_view(), name='service-list-create'),
+    path('services/<int:pk>/', ServiceDetailAPIView.as_view(), name='service-detail'),
 
     path("doctor-register/", DoctorRegistrationAPIView.as_view(), name="doctor-register"),
     path("create-doctor/", CreateDoctorWithUserView.as_view(), name="create-doctor"),
