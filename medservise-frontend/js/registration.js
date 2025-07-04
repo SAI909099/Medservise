@@ -61,7 +61,6 @@ document.addEventListener("DOMContentLoaded", () => {
     updateTotalFee();
   });
 
-  document.getElementById("amount_paid").addEventListener("input", updateAmountOwed);
   serviceContainer.addEventListener("change", updateTotalFee);
 
   function updateTotalFee() {
@@ -70,14 +69,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const serviceTotal = Array.from(selectedServices).reduce((sum, el) => sum + parseFloat(el.value), 0);
     const total = doctorFee + serviceTotal;
     document.getElementById("total_fee").value = total.toFixed(2);
-    updateAmountOwed();
-  }
-
-  function updateAmountOwed() {
-    const total = parseFloat(document.getElementById("total_fee").value || 0);
-    const paid = parseFloat(document.getElementById("amount_paid").value || 0);
-    const owed = Math.max(total - paid, 0);
-    document.getElementById("amount_owed").value = owed.toFixed(2);
   }
 
   // Submit
@@ -95,8 +86,6 @@ document.addEventListener("DOMContentLoaded", () => {
       address: document.getElementById("address").value,
       doctor_id: parseInt(doctorSelect.value),
       reason: document.getElementById("reason").value,
-      amount_paid: parseFloat(document.getElementById("amount_paid").value),
-      amount_owed: parseFloat(document.getElementById("amount_owed").value),
       services: selectedServiceIds
     };
 
@@ -115,7 +104,6 @@ document.addEventListener("DOMContentLoaded", () => {
         serviceContainer.innerHTML = "";
         document.getElementById("expected_fee").value = "";
         document.getElementById("total_fee").value = "";
-        document.getElementById("amount_owed").value = "";
       })
       .catch(err => {
         console.error(err);
@@ -123,3 +111,9 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   });
 });
+
+// ✅ Logout
+function logout() {
+  localStorage.removeItem("token");
+  window.location.href = "index.html";
+}

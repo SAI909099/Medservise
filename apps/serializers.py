@@ -15,7 +15,7 @@ from rest_framework.serializers import ModelSerializer
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from root import settings
-from .models import User, Doctor, Patient, PatientResult, Service
+from .models import User, Doctor, Patient, PatientResult, Service, TreatmentPayment, CashRegister
 
 redis_url = urlparse(settings.CELERY_BROKER_URL)
 
@@ -218,16 +218,17 @@ class ServiceSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'price', 'doctor', 'doctor_id']
 
 class PatientSerializer(serializers.ModelSerializer):
-    latest_doctor = serializers.SerializerMethodField()
+    balance = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    last_visit = serializers.DateTimeField(read_only=True)
+    total_due = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    total_paid = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
 
     class Meta:
         model = Patient
-        fields = ['id', 'first_name', 'last_name', 'phone', 'address', 'created_at', 'latest_doctor']
-
-    def get_latest_doctor(self, patient):
-        latest_appointment = Appointment.objects.filter(patient=patient).order_by('-created_at').first()
-        return latest_appointment.doctor.name if latest_appointment and latest_appointment.doctor else "N/A"
-
+        fields = [
+            'id', 'first_name', 'last_name', 'phone', 'address', 'created_at',
+            'patients_doctor', 'balance', 'last_visit', 'total_due', 'total_paid'
+        ]
 
 
 
@@ -248,6 +249,10 @@ class PaymentSerializer(serializers.ModelSerializer):
         model = Payment
         fields = '__all__'
 
+class TreatmentPaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TreatmentPayment
+        fields = "__all__"
 
 class TreatmentRoomSerializer(serializers.ModelSerializer):
     patients = serializers.SerializerMethodField()
@@ -255,6 +260,8 @@ class TreatmentRoomSerializer(serializers.ModelSerializer):
     class Meta:
         model = TreatmentRoom
         fields = '__all__'
+
+
 
     def get_patients(self, obj):
         active_regs = obj.treatmentregistration_set.filter(discharged_at__isnull=True)
@@ -357,3 +364,50 @@ class RoomStatusSerializer(serializers.Serializer):
     room_name = serializers.CharField()
     capacity = serializers.IntegerField()
     patients = serializers.ListField(child=serializers.CharField())
+
+
+class DoctorPaymentSerializer(serializers.ModelSerializer):
+    patient_first_name = serializers.CharField(source='patient.first_name', read_only=True)
+    patient_last_name = serializers.CharField(source='patient.last_name', read_only=True)
+
+    doctor_first_name = serializers.CharField(source='patient.patients_doctor.user.first_name', read_only=True)
+    doctor_last_name = serializers.CharField(source='patient.patients_doctor.user.last_name', read_only=True)
+
+    amount_paid = serializers.DecimalField(source='amount', max_digits=10, decimal_places=2, read_only=True)
+    created_at = serializers.DateTimeField(source='date', read_only=True)
+    notes = serializers.CharField(required=False)
+
+    class Meta:
+        model = TreatmentPayment
+        fields = [
+            'id',
+            'patient_first_name',
+            'patient_last_name',
+            'doctor_first_name',
+            'doctor_last_name',
+            'amount_paid',
+            'status',
+            'created_at',
+            'notes',
+        ]
+
+class CashRegisterSerializer(serializers.ModelSerializer):
+    patient_name = serializers.CharField(source='patient.full_name', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+
+    class Meta:
+        model = CashRegister
+        fields = [
+            'id', 'patient', 'patient_name', 'transaction_type',
+            'amount', 'payment_method', 'reference', 'notes',
+            'created_by', 'created_by_name', 'created_at'
+        ]
+        extra_kwargs = {
+            'created_by': {'write_only': True},
+        }
+
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)
+
+

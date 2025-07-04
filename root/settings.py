@@ -2,6 +2,8 @@
 from os.path import join
 from pathlib import Path
 
+from celery.schedules import crontab
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -28,6 +30,7 @@ INSTALLED_APPS = [
     'apps',
     'rest_framework_simplejwt',
     'corsheaders',
+    'django_celery_beat',
 
 
 ]
@@ -148,7 +151,7 @@ EMAIL_HOST_PASSWORD = 'mmch srjl ihwd sgli'
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }
 
@@ -162,3 +165,14 @@ ACCOUNT_LOGOUT_URL = 'login'
 CORS_ALLOW_ALL_ORIGINS = True
 
 
+
+CELERY_BEAT_SCHEDULE = {
+    'archive-old-patients-monthly': {
+        'task': 'apps.tasks.archive_old_patients_task',
+        'schedule': crontab(day_of_month=1, hour=2, minute=0),
+    },
+    'daily-room-charges': {
+        'task': 'apps.tasks.apply_daily_room_charges',
+        'schedule': crontab(minute='*'),  # 🔁 Every minute
+    },
+}

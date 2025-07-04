@@ -15,7 +15,7 @@ def send_verification_email(email, verification_code):
 from celery import shared_task
 from django.utils import timezone
 from datetime import timedelta
-from apps.models import Patient
+from apps.models import Patient, TreatmentRegistration, TreatmentPayment
 import pandas as pd
 from django.core.mail import EmailMessage
 import os
@@ -56,12 +56,27 @@ def archive_old_patients_task():
     return f"{len(df)} patients archived and emailed."
 
 
-
 @shared_task
 def apply_daily_room_charges():
     from apps.models import TreatmentRegistration
+    from django.utils import timezone
 
-    for reg in TreatmentRegistration.objects.filter(discharged_at__isnull=True):
-        price = reg.room.price_per_day
-        reg.total_paid += price
-        reg.save()
+    now = timezone.now()
+    today = now.date()
+
+    print("🕒 Running apply_daily_room_charges task...")
+
+    for reg in TreatmentRegistration.objects.filter(discharged_at__isnull=True).select_related("room"):
+        room = reg.room
+        if not room:
+            continue
+
+        days_since = (today - reg.assigned_at.date()).days + 1
+        expected_total = days_since * room.price_per_day
+
+        if reg.total_paid < expected_total:
+            print(f"➡️ Updating {reg.patient.first_name} {reg.patient.last_name}: {reg.total_paid} → {expected_total}")
+            reg.total_paid = expected_total
+            reg.save()
+        else:
+            print(f"✅ No update needed for {reg.patient.first_name}")

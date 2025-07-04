@@ -1,0 +1,32 @@
+body {
+  background-color: #f8f9fa;
+}
+
+.navbar {
+  margin-bottom: 20px;
+}
+
+.card {
+  margin-bottom: 20px;
+  border: 1px solid #dee2e6;
+  border-radius: 5px;
+}
+
+.card-header {
+  font-weight: bold;
+}
+
+.table th {
+  background-color: #3498db;
+  color: white;
+}
+
+.balance-positive {
+  color: #dc3545;
+  font-weight: bold;
+}
+
+.balance-zero {
+  color: #28a745;
+  font-weight: bold;
+}

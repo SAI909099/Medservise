@@ -1,10 +1,14 @@
 import random
 import string
+import traceback
 from datetime import timedelta
 
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.db.models import Sum, ExpressionWrapper
+from django.db.models.functions import Coalesce, ExtractDay, Now
 from django.utils import timezone
 from django.utils.http import urlsafe_base64_decode
+from django.utils.timezone import now
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -15,15 +19,19 @@ from rest_framework.permissions import AllowAny, IsAuthenticated, IsAuthenticate
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.db.models import Sum, F, ExpressionWrapper, DecimalField
+from django.db.models.functions import Coalesce
 
 from apps.models import User, Doctor, Patient, Appointment, Payment, TreatmentRoom, \
-    TreatmentRegistration, PatientResult, Service
+    TreatmentRegistration, PatientResult, Service, TreatmentPayment, CashRegister
 from apps.serializers import ForgotPasswordSerializer, PasswordResetConfirmSerializer, RegisterSerializer, \
     LoginSerializer, LoginUserModelSerializer, UserInfoSerializer, DoctorSerializer, \
     PatientSerializer, AppointmentSerializer, PaymentSerializer, TreatmentRoomSerializer, \
     TreatmentRegistrationSerializer, PatientResultSerializer, ServiceSerializer, DoctorCreateSerializer, \
-    DoctorUserCreateSerializer, DoctorDetailSerializer
+    DoctorUserCreateSerializer, DoctorDetailSerializer, TreatmentPaymentSerializer, DoctorPaymentSerializer, \
+    CashRegisterSerializer
 from apps.tasks import send_verification_email
+from . import models
 
 
 # ------------------------------------Register ------------------------------------------
@@ -159,6 +167,17 @@ class PatientRegistrationAPIView(APIView):
         responses={201: AppointmentSerializer}
     )
     def post(self, request):
+        print("✅ Received patient data:", request.data)  # 🔍 Debug incoming data
+
+        doctor_id = request.data.get("doctor_id")
+        if not doctor_id:
+            return Response({"error": "Doctor ID is required."}, status=400)
+
+        try:
+            doctor = Doctor.objects.get(id=doctor_id)
+        except Doctor.DoesNotExist:
+            return Response({"error": "Doctor not found"}, status=404)
+
         patient_data = {
             "first_name": request.data.get("first_name"),
             "last_name": request.data.get("last_name"),
@@ -166,37 +185,37 @@ class PatientRegistrationAPIView(APIView):
             "address": request.data.get("address"),
             "age": request.data.get("age"),
         }
-        doctor_id = request.data.get("doctor_id")
-        reason = request.data.get("reason")
+
         services = request.data.get("services", [])
-        amount_paid = request.data.get("amount_paid", 0)
-        amount_owed = request.data.get("amount_owed", 0)
+        reason = request.data.get("reason")
+        amount_paid = float(request.data.get("amount_paid", 0))
+        amount_owed = float(request.data.get("amount_owed", 0))
 
         patient_serializer = PatientSerializer(data=patient_data)
+
         if patient_serializer.is_valid():
-            patient = patient_serializer.save()
+            # ✅ Save and assign doctor
+            patient = patient_serializer.save(patients_doctor=doctor)
+            print("✅ Patient saved:", patient)
 
-            try:
-                doctor = Doctor.objects.get(id=doctor_id)
-            except Doctor.DoesNotExist:
-                return Response({"error": "Doctor not found"}, status=404)
-
+            # ✅ Create appointment
             appointment = Appointment.objects.create(
                 patient=patient,
                 doctor=doctor,
                 reason=reason,
                 status='queued'
             )
+            print("✅ Appointment created:", appointment)
 
-            # Save services
+            # ✅ Attach selected services
             for service_id in services:
                 try:
                     service = Service.objects.get(id=service_id)
                     appointment.services.add(service)
                 except Service.DoesNotExist:
-                    pass
+                    print(f"⚠️ Service ID {service_id} not found")
 
-            # Save payment
+            # ✅ Record initial payment
             Payment.objects.create(
                 appointment=appointment,
                 amount_paid=amount_paid,
@@ -206,7 +225,9 @@ class PatientRegistrationAPIView(APIView):
 
             return Response(AppointmentSerializer(appointment).data, status=201)
 
-        return Response(patient_serializer.errors, status=400)
+        else:
+            print("❌ Patient serializer errors:", patient_serializer.errors)
+            return Response(patient_serializer.errors, status=400)
 
 
 @extend_schema(tags=['Doctor'])
@@ -295,36 +316,6 @@ class DoctorAppointmentDetailAPIView(RetrieveUpdateDestroyAPIView):
 
 
 
-@extend_schema(tags=["Doctor Appointments"])
-class AssignPatientToRoomAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        patient_id = request.data.get("patient_id")
-        room_id = request.data.get("room_id")
-
-        if not patient_id or not room_id:
-            return Response({"error": "Both patient_id and room_id are required"}, status=400)
-
-        try:
-            patient = Patient.objects.get(id=patient_id)
-        except Patient.DoesNotExist:
-            return Response({"error": "Patient not found"}, status=404)
-
-        try:
-            room = TreatmentRoom.objects.get(id=room_id)
-        except TreatmentRoom.DoesNotExist:
-            return Response({"error": "Treatment room not found"}, status=404)
-
-        # Check if room is full
-        current_occupants = TreatmentRegistration.objects.filter(room=room, discharged_at__isnull=True).count()
-        if current_occupants >= room.capacity:
-            return Response({"error": "Room is full"}, status=400)
-
-        # Create registration
-        TreatmentRegistration.objects.create(patient=patient, room=room)
-
-        return Response({"message": "Patient assigned to room successfully"}, status=200)
 
 @extend_schema(tags=["Treatment"])
 class AssignRoomAPIView(APIView):
@@ -347,13 +338,20 @@ class AssignRoomAPIView(APIView):
             room = TreatmentRoom.objects.get(id=room_id)
             print("✅ Found room:", room)
 
+            # Check if room is full
+            active_regs = TreatmentRegistration.objects.filter(room=room, discharged_at__isnull=True).count()
+            if active_regs >= room.capacity:
+                return Response({"error": "Room is full"}, status=400)
+
             appointment = Appointment.objects.filter(patient=patient).latest("created_at")
             print("✅ Latest appointment:", appointment)
 
             TreatmentRegistration.objects.create(
-                appointment=appointment,
                 patient=patient,
-                room=room
+                room=room,
+                appointment=appointment,
+                total_paid=room.price_per_day,
+                assigned_at=now()
             )
 
             return Response({"message": "Patient assigned successfully"}, status=200)
@@ -473,16 +471,297 @@ def is_active(self):
 
 
 
-class RecentPatientsView(ListAPIView):
-    serializer_class = PatientSerializer
-    permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        two_days_ago = timezone.now() - timedelta(days=2)
-        return Patient.objects.filter(created_at__gte=two_days_ago)
 
 class TreatmentRoomList(ListAPIView):
     queryset = TreatmentRoom.objects.all()
     serializer_class = TreatmentRoomSerializer
     permission_classes = [IsAuthenticated]
 
+@extend_schema(tags=["Treatment Payments"])
+class TreatmentRoomPaymentView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        rooms = TreatmentRoom.objects.all()
+        data = []
+
+        for room in rooms:
+            registrations = TreatmentRegistration.objects.filter(room=room, discharged_at__isnull=True)
+            patients_data = []
+            for reg in registrations:
+                total_paid = reg.payments.aggregate(total=Sum('amount_paid'))['total'] or 0
+                daily_price = room.price_per_day or 0  # Assuming room has a `price` field
+                days = (timezone.now().date() - reg.created_at.date()).days or 1
+                amount_due = days * daily_price
+
+                if total_paid >= amount_due:
+                    status = "paid"
+                elif total_paid > 0:
+                    status = "partial"
+                else:
+                    status = "unpaid"
+
+                patients_data.append({
+                    "patient_id": reg.patient.id,
+                    "patient_name": f"{reg.patient.first_name} {reg.patient.last_name}",
+                    "amount_due": amount_due,
+                    "amount_paid": total_paid,
+                    "status": status,
+                })
+
+            data.append({
+                "room_id": room.id,
+                "room_name": room.name,
+                "floor": room.floor,
+                "patients": patients_data
+            })
+
+        return Response(data)
+
+
+@extend_schema(tags=["Treatment Payments"])
+class TreatmentRoomPaymentsView(GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = TreatmentPaymentSerializer# ✅ replace with your serializer
+
+    def get(self, request):
+        rooms_data = []
+
+        rooms = TreatmentRoom.objects.all()
+        for room in rooms:
+            active_regs = TreatmentRegistration.objects.filter(
+                room=room, discharged_at__isnull=True
+            ).select_related("patient")
+
+            patients_data = []
+            for reg in active_regs:
+                patient = reg.patient
+
+                payments = TreatmentPayment.objects.filter(patient=patient).order_by("date")
+                total_paid = sum(p.amount for p in payments)
+                expected = reg.total_paid
+
+                if total_paid == 0:
+                    status_str = "unpaid"
+                elif total_paid < expected:
+                    status_str = "partial"
+                elif total_paid == expected:
+                    status_str = "paid"
+                else:
+                    status_str = "prepaid"
+
+                overpaid_amount = max(0, total_paid - expected)
+
+                patients_data.append({
+                    "id": patient.id,
+                    "first_name": patient.first_name,
+                    "last_name": patient.last_name,
+                    "payments": TreatmentPaymentSerializer(payments, many=True).data,
+                    "total_paid": float(total_paid),
+                    "expected": float(expected),
+                    "status": status_str,
+                    "overpaid_amount": float(overpaid_amount),
+                })
+
+            rooms_data.append({
+                "id": room.id,
+                "name": room.name,
+                "floor": room.floor,
+                "price": float(room.price_per_day),
+                "patients": patients_data,
+            })
+
+        return Response(rooms_data)
+
+    def post(self, request, *args, **kwargs):
+        print("🔥 Incoming POST:", request.data)
+
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            print("❌ Serializer errors:", serializer.errors)
+            return Response(serializer.errors, status=400)
+
+@extend_schema(tags=["Doctor Payments"])
+class DoctorPaymentsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            payments = TreatmentPayment.objects.select_related(
+                'patient__patients_doctor__user'
+            ).all().order_by("-date")  # <-- changed here
+            serializer = DoctorPaymentSerializer(payments, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@extend_schema(tags=["Doctor Payments"])
+class DoctorPaymentListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+
+    def get(self, request):
+        # Select related fields to avoid extra DB hits for nested serializers
+        payments = TreatmentPayment.objects.select_related(
+            'patient__patients_doctor__user'
+        ).all().order_by("-date")
+        serializer = DoctorPaymentSerializer(payments, many=True)
+        return Response(serializer.data)
+
+class CashRegistrationListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        patients = Patient.objects.annotate(
+            total_paid=Coalesce(Sum('treatmentpayment__amount'), 0),
+            services_value=Coalesce(Sum('appointment__services__price'), 0),
+            room_charges=Coalesce(Sum(
+                ExpressionWrapper(
+                    F('treatmentregistration__room__price_per_day') *
+                    (ExtractDay(Now() - F('treatmentregistration__assigned_at')) + 1),
+                    output_field=DecimalField()
+                )
+            ), 0),
+            total_due=F('services_value') + F('room_charges'),
+            balance=F('total_due') - F('total_paid')
+        ).select_related(
+            'patients_doctor'
+        ).prefetch_related(
+            'appointment_set__services',
+            'treatmentregistration_set__room'
+        )
+
+        def post(self, request):
+            serializer = CashRegisterSerializer(data=request.data, context={'request': request})
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=201)
+            return Response(serializer.errors, status=400)
+
+        serializer = PatientSerializer(patients, many=True)
+        return Response(serializer.data)
+
+
+class CashRegistrationView(ListCreateAPIView):
+    serializer_class = CashRegisterSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return CashRegister.objects.filter(
+            patient_id=self.kwargs.get('patient_id')
+        ).select_related('patient', 'created_by')
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+
+        # Calculate totals
+        total_paid = queryset.aggregate(total=Sum('amount'))['total'] or 0
+        patient = Patient.objects.get(id=self.kwargs.get('patient_id'))
+
+        # Calculate patient's balance (you'll need to implement this based on your business logic)
+        balance = self.calculate_patient_balance(patient)
+
+        response_data = {
+            'transactions': serializer.data,
+            'summary': {
+                'total_paid': total_paid,
+                'balance': balance,
+                'patient': {
+                    'id': patient.id,
+                    'name': f"{patient.first_name} {patient.last_name}",
+                    'phone': patient.phone
+                }
+            }
+        }
+        return Response(response_data)
+
+    def calculate_patient_balance(self, patient):
+        """Calculate the patient's outstanding balance"""
+        # Implement your balance calculation logic here
+        # This might involve:
+        # - Sum of all services/treatments
+        # - Minus payments made
+        return 0  # Placeholder
+
+
+class CashRegisterReceiptView(RetrieveAPIView):
+    queryset = CashRegister.objects.all()
+    serializer_class = CashRegisterSerializer
+    permission_classes = [IsAuthenticated]
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+
+        # Generate receipt data
+        receipt_data = {
+            'receipt_number': instance.reference or f"CR-{instance.id}",
+            'date': instance.created_at.strftime("%Y-%m-%d %H:%M"),
+            'patient_name': f"{instance.patient.first_name} {instance.patient.last_name}",
+            'transaction_type': instance.get_transaction_type_display(),
+            'amount': float(instance.amount),
+            'payment_method': instance.get_payment_method_display(),
+            'processed_by': instance.created_by.get_full_name(),
+            'notes': instance.notes
+        }
+
+        return Response(receipt_data)
+
+class RecentPatientsByDaysView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        days = int(request.query_params.get("days", 1))  # ?days=1 or 3 or 7
+        since_date = timezone.now() - timedelta(days=days)
+        patients = Patient.objects.filter(created_at__gte=since_date)
+        return Response(PatientSerializer(patients, many=True).data)
+
+class CashRegisterListAPIView(ListAPIView):
+    queryset = CashRegister.objects.select_related("patient", "created_by").all()
+    serializer_class = CashRegisterSerializer
+    permission_classes = [IsAuthenticated]
+
+class CashRegisterListCreateAPIView(ListCreateAPIView):
+    queryset = CashRegister.objects.all().order_by('-created_at')
+    serializer_class = CashRegisterSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def post(self, request, *args, **kwargs):
+        print("🔥 Incoming POST:", request.data)
+
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            print("❌ Serializer errors:", serializer.errors)
+            return Response(serializer.errors, status=400)
+
+        self.perform_create(serializer)
+        return Response(serializer.data, status=201)
+
+class RecentPatientsAPIView(APIView):
+    def get(self, request):
+        days = int(request.GET.get("days", 1))
+        since = timezone.now() - timedelta(days=days)
+        patients = Patient.objects.filter(created_at__gte=since)
+        serializer = PatientSerializer(patients, many=True)
+        return Response(serializer.data)
+
+
+class RecentPatientsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        days = int(request.query_params.get("days", 1))  # defaults to 1 day
+        since = timezone.now() - timedelta(days=days)
+        patients = Patient.objects.filter(created_at__gte=since).order_by("-created_at")
+        serializer = PatientSerializer(patients, many=True)
+        return Response(serializer.data)

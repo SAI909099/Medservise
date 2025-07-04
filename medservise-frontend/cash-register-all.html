@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>All Patient Cash Register</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/cash.css">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+  <div class="container">
+    <a class="navbar-brand" href="#">Medservise - All Patients</a>
+    <button class="btn btn-light ms-auto" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<div class="container mt-4">
+  <h1>All Patient Cash Register</h1>
+
+  <!-- PATIENT LIST -->
+  <div class="card mb-4">
+    <div class="card-header bg-warning">
+      <h2>All Patients</h2>
+    </div>
+    <div class="card-body">
+      <ul id="patient-list" class="list-group"></ul>
+    </div>
+  </div>
+
+  <!-- PATIENT INFO + PAYMENT FORM + HISTORY (same as before) -->
+  <div id="patient-section" class="d-none">
+    <!-- Patient Info -->
+    <div class="patient-info card mb-4">
+      <div class="card-header bg-info text-white">
+        <h2>Patient Information</h2>
+      </div>
+      <div class="card-body row">
+        <div class="col-md-3"><strong>ID</strong> <div id="patient-id-display"></div></div>
+        <div class="col-md-3"><strong>Name</strong> <div id="patient-name"></div></div>
+        <div class="col-md-3"><strong>Phone</strong> <div id="patient-phone"></div></div>
+        <div class="col-md-3"><strong>Balance</strong> <div id="balance">$0.00</div></div>
+      </div>
+    </div>
+
+    <!-- Payment Form -->
+    <div class="card mb-4">
+      <div class="card-header bg-secondary text-white"><h2>Record Payment</h2></div>
+      <div class="card-body">
+        <form id="cash-form">
+          <input type="hidden" id="patient" />
+          <div class="row mb-3">
+            <div class="col-md-3">
+              <label class="form-label">Transaction Type</label>
+              <select id="transaction_type" class="form-select" required>
+                <option value="">Select Type</option>
+                <option value="INCOME">Consultation</option>
+                <option value="INCOME">Treatment</option>
+                <option value="INCOME">Room Charge</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Amount</label>
+              <input type="number" id="amount" class="form-control" step="0.01" min="0" required />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Method</label>
+              <select id="payment_method" class="form-select" required>
+                <option value="">Select Method</option>
+                <option value="CASH">Cash</option>
+                <option value="CARD">Card</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Notes</label>
+              <input type="text" id="notes" class="form-control" />
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Submit Payment</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Payment History -->
+    <div class="card">
+      <div class="card-header bg-secondary text-white"><h2>Payment History</h2></div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table id="cash-register-table" class="table table-bordered">
+            <thead>
+              <tr>
+                <th>Patient</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Method</th>
+                <th>Notes</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/cash_register_all.js"></script>
+<script src="js/auth.js"></script>
+</body>
+</html>

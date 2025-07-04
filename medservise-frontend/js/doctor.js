@@ -27,10 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <td>
             ${app.status === "queued"
               ? `
-                <select class="form-select form-select-sm room-dropdown" data-app-id="${app.id}">
-                  <option disabled selected>Select Room</option>
-                </select>
-                <button class="btn btn-sm btn-primary assign-btn" data-app-id="${app.id}">Assign</button>
+
                 <button class="btn btn-sm btn-success" onclick="markDone(${app.id})">Done</button>`
               : ''}
             <button class="btn btn-sm btn-info" onclick="viewInfo(${app.patient.id})">Info</button>

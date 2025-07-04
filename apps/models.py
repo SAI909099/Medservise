@@ -84,7 +84,7 @@ class Appointment(models.Model):
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
     doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='appointments')
     referred_by = models.ForeignKey(Doctor, on_delete=models.SET_NULL, null=True, blank=True, related_name='referred_appointments')
-    reason = models.TextField()
+    reason = models.TextField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='queued')
     services = models.ManyToManyField('Service', blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -137,4 +137,43 @@ class Payment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
+class TreatmentPayment(models.Model):
+    patient = models.ForeignKey("Patient", on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=[('paid', 'Paid'), ('partial', 'Partial'), ('unpaid', 'Unpaid')])
+    date = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+
+class CashRegister(models.Model):
+    TRANSACTION_TYPES = [
+        ('consultation', 'Consultation'),
+        ('treatment', 'Treatment'),
+        ('service', 'Service'),
+        ('room', 'Room Charge'),
+        ('other', 'Other'),
+    ]
+
+    PAYMENT_METHODS = [
+        ('cash', 'Cash'),
+        ('card', 'Card'),
+        ('insurance', 'Insurance'),
+        ('transfer', 'Bank Transfer'),
+    ]
+
+    patient = models.ForeignKey(Patient, on_delete=models.PROTECT)
+    transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    payment_method = models.CharField(max_length=10, choices=PAYMENT_METHODS)
+    reference = models.CharField(max_length=100, blank=True, null=True)
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.PROTECT, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.patient} - {self.get_transaction_type_display()} - {self.amount}"
 
