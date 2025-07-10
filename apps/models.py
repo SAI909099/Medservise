@@ -1,19 +1,19 @@
-from datetime import timedelta
 import random
-from django.db import models
+from datetime import timedelta
 
-from django.db import models
-from django.db.models import CharField, Model, ForeignKey, IntegerField, DateTimeField, CASCADE, OneToOneField, \
-    DecimalField
-from django.utils.timezone import now
-
-from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.db import models
 from django.db.models import DateField, CharField, EmailField, BooleanField
+from django.db.models import Model, ForeignKey, DateTimeField, CASCADE, OneToOneField
+from django.utils import timezone
+from django.utils.timezone import now
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.manager import CustomUserManager
-
-
+from django.conf import settings
+from django.utils.translation import gettext_lazy as _
 
 class User(AbstractUser):
     username = None
@@ -56,6 +56,7 @@ class Patient(models.Model):
     phone = models.CharField(max_length=15)
     address = models.TextField()
     patients_doctor = ForeignKey(Doctor, on_delete=CASCADE, null=True , blank=True)
+    services = models.ManyToManyField(Service, blank=True, related_name='patients')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -87,6 +88,7 @@ class Appointment(models.Model):
     reason = models.TextField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='queued')
     services = models.ManyToManyField('Service', blank=True)
+    turn_number = models.CharField(max_length=10, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -109,7 +111,7 @@ class TreatmentRegistration(models.Model):
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
     room = models.ForeignKey(TreatmentRoom, on_delete=models.SET_NULL, null=True)
     appointment = models.ForeignKey(Appointment, on_delete=models.SET_NULL, null=True)  # ✅ Add this
-    assigned_at = models.DateTimeField(auto_now_add=True)
+    assigned_at = models.DateTimeField(default=timezone.now)
     discharged_at = models.DateTimeField(null=True, blank=True)
     total_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
@@ -141,25 +143,26 @@ class TreatmentPayment(models.Model):
     patient = models.ForeignKey("Patient", on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, choices=[('paid', 'Paid'), ('partial', 'Partial'), ('unpaid', 'Unpaid')])
-    date = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True)
+    payment_method = models.CharField(max_length=20)
+    date = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
 
 
 class CashRegister(models.Model):
     TRANSACTION_TYPES = [
-        ('consultation', 'Consultation'),
-        ('treatment', 'Treatment'),
-        ('service', 'Service'),
-        ('room', 'Room Charge'),
-        ('other', 'Other'),
+        ('consultation', _('Konsultatsiya')),
+        ('treatment', _('Davolash')),
+        ('service', _('Xizmat')),
+        ('room', _('Xona to‘lovi')),
+        ('other', _('Boshqa')),
     ]
 
     PAYMENT_METHODS = [
-        ('cash', 'Cash'),
-        ('card', 'Card'),
-        ('insurance', 'Insurance'),
-        ('transfer', 'Bank Transfer'),
+        ('cash', _('Naqd')),
+        ('card', _('Karta')),
+        ('insurance', _('Sug‘urta')),
+        ('transfer', _('Bank o‘tkazmasi')),
     ]
 
     patient = models.ForeignKey(Patient, on_delete=models.PROTECT)
@@ -169,6 +172,9 @@ class CashRegister(models.Model):
     reference = models.CharField(max_length=100, blank=True, null=True)
     notes = models.TextField(blank=True)
     created_by = models.ForeignKey(User, on_delete=models.PROTECT, null=True, blank=True)
+    turn_number = models.CharField(max_length=10, blank=True, null=True)
+    doctor = models.ForeignKey('Doctor', on_delete=models.SET_NULL, null=True, blank=True)
+    room = models.ForeignKey("TreatmentRoom", on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -177,3 +183,78 @@ class CashRegister(models.Model):
     def __str__(self):
         return f"{self.patient} - {self.get_transaction_type_display()} - {self.amount}"
 
+
+class TurnNumber(models.Model):
+    doctor = models.OneToOneField(Doctor, on_delete=models.CASCADE)
+    letter = models.CharField(max_length=1)  # A, B, C, etc.
+    current_number = models.IntegerField(default=0)
+    last_reset = models.DateField(auto_now_add=True)
+
+    def get_next_turn(self):
+        today = timezone.now().date()
+        if self.last_reset != today:
+            self.current_number = 1
+            self.last_reset = today
+        else:
+            self.current_number += 1
+        self.save()
+        return f"{self.letter}{self.current_number:03d}"
+
+
+class CallTurnView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        appointment_id = request.data.get("appointment_id")
+        if not appointment_id:
+            return Response({"error": "appointment_id required"}, status=400)
+
+        try:
+            appointment = Appointment.objects.select_related("patient", "doctor").get(id=appointment_id)
+        except Appointment.DoesNotExist:
+            return Response({"error": "Appointment not found"}, status=404)
+
+        # Save or update last-called time for frontend highlighting (optional)
+        appointment.last_called = now()
+        appointment.save()
+
+        # You can log or broadcast this action (via Redis/Channel/Socket later if needed)
+        return Response({"message": "Patient called"}, status=200)
+
+class CurrentCall(models.Model):
+    appointment = models.OneToOneField(Appointment, on_delete=models.CASCADE)
+    called_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.appointment.patient} → {self.appointment.doctor}"
+
+
+
+
+
+class Outcome(models.Model):
+    CATEGORY_CHOICES = [
+        ('salary', "Maosh"),
+        ('equipment', "Jihozlar"),
+        ('rent', "Ijaralar"),
+        ('supplies', "Materiallar"),
+        ('other', "Boshqa"),
+    ]
+
+    title = models.CharField(max_length=255)
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    payment_method = models.CharField(
+        max_length=20,
+        choices=[
+            ('cash', 'Naqd'),
+            ('card', 'Karta'),
+            ('transfer', 'O‘tkazma'),
+        ]
+    )
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.title} - {self.amount} so'm"

@@ -1,161 +1,178 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const token = localStorage.getItem("token");
-  const roomList = document.getElementById("room-list");
-  let currentFilter = "all";
+    const token = localStorage.getItem("token");
+    const roomList = document.getElementById("room-list");
+    let currentFilter = "all";
 
-  // Load payment data from backend
-  function loadPayments() {
-    fetch("http://localhost:8000/api/v1/treatment-room-payments/", {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(data => {
-        roomList.innerHTML = "";
+    function loadPayments() {
+        fetch("http://localhost:8000/api/v1/treatment-room-payments/", {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+            .then((res) => res.json())
+            .then((data) => {
+                roomList.innerHTML = "";
 
-        data.forEach(room => {
-          const roomDiv = document.createElement("div");
-          roomDiv.classList.add("card", "mb-3", "p-3");
+                data.forEach((room) => {
+                    const roomDiv = document.createElement("div");
+                    roomDiv.classList.add("card", "mb-3", "p-3");
 
-          // Filter patients based on currentFilter
-          const filteredPatients = room.patients.filter(p => {
-            if (currentFilter === "all") return true;
+                    const filteredPatients = room.patients.filter((p) => {
+                        if (currentFilter === "all") return true;
+                        if (currentFilter === "prepaid") return p.total_paid > p.expected;
+                        if (currentFilter === "paid") return p.total_paid >= p.expected;
+                        if (currentFilter === "unpaid") return p.total_paid === 0;
+                        return false;
+                    });
 
-            if (currentFilter === "prepaid") return p.total_paid > p.expected;
+                    let patientsHTML = "";
+                    filteredPatients.forEach((p) => {
+                        const isPrepaid = p.total_paid > p.expected;
+                        const statusStr = isPrepaid ? "OLDINDAN TO‘LANGAN" : (p.status ? p.status.toUpperCase() : "NOMA'LUM");
+                        const statusColor = isPrepaid
+                            ? "text-info"
+                            : p.status === "paid"
+                                ? "text-success"
+                                : p.status === "partial"
+                                    ? "text-warning"
+                                    : "text-danger";
 
-            if (currentFilter === "paid") return p.total_paid >= p.expected;
+                        let paymentHistory = "<ul class='payment-history d-none'>";
+                        p.payments.forEach((pay) => {
+                            paymentHistory += `<li>${pay.amount} so'm (${new Date(pay.date).toLocaleString()}) — <i>${pay.status}</i><br>${pay.notes || ''}</li>`;
+                        });
+                        paymentHistory += "</ul>";
 
-            if (currentFilter === "unpaid") return p.total_paid === 0;
-
-            return false;
-          });
-
-          let patientsHTML = "";
-          filteredPatients.forEach(p => {
-            const isPrepaid = p.total_paid > p.expected;
-            const statusStr = isPrepaid ? "PREPAID" : (p.status ? p.status.toUpperCase() : "UNKNOWN");
-            const statusColor = isPrepaid ? "text-info" :
-                                p.status === "paid" ? "text-success" :
-                                p.status === "partial" ? "text-warning" :
-                                "text-danger";
-
-            // Payment history, hidden by default
-            let paymentHistory = "<ul class='payment-history d-none'>";
-            p.payments.forEach(pay => {
-              paymentHistory += `<li>${pay.amount} so'm on ${new Date(pay.date).toLocaleString()} — <i>${pay.status}</i><br>${pay.notes || ''}</li>`;
-            });
-            paymentHistory += "</ul>";
-
-            patientsHTML += `
+                        patientsHTML += `
               <div class="border rounded p-2 mb-2">
                 <strong>${p.first_name} ${p.last_name}</strong>
-                <p>Status: <span class="${statusColor}">${statusStr}</span></p>
-                <p>Paid: ${p.total_paid} so'm / ${p.expected} so'm</p>
+                <p>Holati: <span class="${statusColor}">${statusStr}</span></p>
+                <p>To‘langan: ${p.total_paid} so'm / ${p.expected} so'm</p>
 
-                <button class="btn btn-outline-secondary btn-sm toggle-payment-form mb-2">▾ Add Payment</button>
-                <button class="btn btn-outline-info btn-sm toggle-payment-history mb-2 ms-2">▾ Payment History</button>
+                <button class="btn btn-outline-secondary btn-sm toggle-payment-form mb-2">▾ To‘lov qo‘shish</button>
+                <button class="btn btn-outline-info btn-sm toggle-payment-history mb-2 ms-2">▾ To‘lov tarixi</button>
 
                 <form class="payment-form d-none" data-patient-id="${p.id}">
-                  <input type="number" step="0.01" placeholder="Amount" class="form-control mb-1" required>
+                  <input type="number" step="0.01" placeholder="Miqdorni kiriting" class="form-control mb-1" required>
                   <select class="form-select mb-1" required>
-                    <option value="paid">Paid</option>
-                    <!-- <option value="partial">Partial</option> -->
-                    <!-- <option value="unpaid">Unpaid</option> -->
+                    <option value="paid">To‘landi</option>
                   </select>
-                  <textarea class="form-control mb-1" placeholder="Notes (optional)"></textarea>
-                  <button type="submit" class="btn btn-sm btn-primary">➕ Add Payment</button>
+                  <select name="payment_method" class="form-select mb-1" required>
+                    <option value="cash">Naqd</option>
+                    <option value="card">Karta</option>
+                    <option value="insurance">Sug‘urta</option>
+                    <option value="transfer">Bank o‘tkazmasi</option>
+                  </select>
+                  <textarea class="form-control mb-1" placeholder="Izoh (ixtiyoriy)"></textarea>
+                  <button type="submit" class="btn btn-sm btn-primary">➕ To‘lovni qo‘shish</button>
                 </form>
 
                 ${paymentHistory}
               </div>
             `;
-          });
+                    });
 
-          roomDiv.innerHTML = `
-            <h5>${room.name} (Floor ${room.floor})</h5>
-            ${patientsHTML || "<p>No patients currently assigned for this filter.</p>"}
+                    roomDiv.innerHTML = `
+            <h5>${room.name} (Qavat ${room.floor})</h5>
+            ${patientsHTML || "<p>Ushbu filtr uchun bemorlar yo‘q.</p>"}
           `;
-          roomList.appendChild(roomDiv);
+                    roomList.appendChild(roomDiv);
+                });
+
+                attachHandlers();
+            })
+            .catch((err) => {
+                console.error("❌ To‘lov ma'lumotlarini yuklab bo‘lmadi", err);
+                roomList.innerHTML = "<p class='text-danger'>❌ To‘lov ma'lumotlarini yuklab bo‘lmadi</p>";
+            });
+    }
+
+    function attachHandlers() {
+        document.querySelectorAll(".toggle-payment-form").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const parentDiv = btn.closest("div.border");
+                const form = parentDiv?.querySelector(".payment-form");
+                if (form) form.classList.toggle("d-none");
+            });
         });
 
-        attachHandlers();
-      })
-      .catch(err => {
-        console.error("❌ Failed to load payment data", err);
-        roomList.innerHTML = "<p class='text-danger'>❌ Failed to load payment data</p>";
-      });
-  }
+        document.querySelectorAll(".toggle-payment-history").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const parentDiv = btn.closest("div.border");
+                const history = parentDiv?.querySelector(".payment-history");
+                if (history) history.classList.toggle("d-none");
+            });
+        });
 
-  // Attach all event handlers for buttons and forms
-  function attachHandlers() {
-    // Toggle Add Payment form
-    document.querySelectorAll(".toggle-payment-form").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const parentDiv = btn.closest("div.border");
-        if (!parentDiv) return;
-        const form = parentDiv.querySelector(".payment-form");
-        if (form) form.classList.toggle("d-none");
-      });
-    });
+        document.querySelectorAll(".payment-form").forEach((form) => {
+            form.addEventListener("submit", (e) => {
+                e.preventDefault();
+                const patientId = form.dataset.patientId;
+                const amount = parseFloat(form.querySelector("input").value);
+                const status = form.querySelector("select").value;
+                const notes = form.querySelector("textarea").value;
+                const paymentMethod = form.querySelector("select[name='payment_method']").value;
 
-    // Toggle Payment History visibility
-    document.querySelectorAll(".toggle-payment-history").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const parentDiv = btn.closest("div.border");
-        if (!parentDiv) return;
-        const paymentHistory = parentDiv.querySelector(".payment-history");
-        if (paymentHistory) paymentHistory.classList.toggle("d-none");
-      });
-    });
+                if (!amount || amount <= 0) {
+                    alert("Iltimos, to‘g‘ri miqdorni kiriting");
+                    return;
+                }
 
-    // Handle Add Payment form submission
-    document.querySelectorAll(".payment-form").forEach(form => {
-      form.addEventListener("submit", e => {
-        e.preventDefault();
-        const patientId = form.dataset.patientId;
-        const amount = parseFloat(form.querySelector("input").value);
-        const status = form.querySelector("select").value;
-        const notes = form.querySelector("textarea").value;
+                fetch("http://localhost:8000/api/v1/treatment-room-payments/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        patient: patientId,
+                        amount,
+                        status,
+                        notes,
+                        payment_method: paymentMethod,
+                    }),
+                })
+                    .then((res) => {
+                        if (!res.ok) throw new Error("To‘lovni saqlashda xatolik");
+                        return res.json();
+                    })
+                    .then((data) => {
+                        alert("✅ To‘lov muvaffaqiyatli qo‘shildi");
 
-        if (!amount || amount <= 0) {
-          alert("Enter a valid amount");
-          return;
-        }
+                        // 👇 Call backend to print
+                        fetch("http://localhost:8000/api/v1/treatment-room-payments/room-print/", {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({ payment_id: data.id }),
+                        })
+                            .then((res) => {
+                                if (!res.ok) throw new Error("❌ Kvitansiyani chop etib bo‘lmadi");
+                                console.log("🖨️ Chek printerga yuborildi");
+                            })
+                            .catch((err) => {
+                                console.error("❌ Chop etishda xatolik", err);
+                            });
 
-        fetch("http://localhost:8000/api/v1/treatment-room-payments/", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ patient: patientId, amount, status, notes })
-        })
-          .then(res => {
-            if (!res.ok) throw new Error("Failed to record payment");
-            return res.json();
-          })
-          .then(() => {
-            alert("✅ Payment added successfully");
+                        loadPayments();
+                    })
+                    .catch((err) => {
+                        console.error("❌ To‘lovda xatolik", err);
+                        alert("❌ To‘lovni qo‘shishda xatolik yuz berdi");
+                    });
+            });
+        });
+    }
+
+    document.querySelectorAll("#payment-filter-tabs .nav-link").forEach((tab) => {
+        tab.addEventListener("click", (e) => {
+            e.preventDefault();
+            document.querySelectorAll("#payment-filter-tabs .nav-link").forEach((t) => t.classList.remove("active"));
+            tab.classList.add("active");
+            currentFilter = tab.dataset.filter;
             loadPayments();
-          })
-          .catch(err => {
-            console.error("❌ Payment error", err);
-            alert("❌ Error adding payment");
-          });
-      });
+        });
     });
-  }
 
-  // Filter tabs event listeners
-  document.querySelectorAll("#payment-filter-tabs .nav-link").forEach(tab => {
-    tab.addEventListener("click", e => {
-      e.preventDefault();
-      document.querySelectorAll("#payment-filter-tabs .nav-link").forEach(t => t.classList.remove("active"));
-      tab.classList.add("active");
-      currentFilter = tab.dataset.filter;
-      loadPayments(); // reload data with the new filter applied
-    });
-  });
-
-  // Initial load
-  loadPayments();
+    loadPayments();
 });

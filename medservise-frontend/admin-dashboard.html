@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Panel - Medservise</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Bootstrap & Chart.js -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body { background-color: #f8f9fa; padding-left: 260px; }
+    #sidebar { width: 240px; height: 100vh; position: fixed; top: 0; left: 0; background-color: #343a40; color: white; overflow-y: auto; }
+    .container { padding-top: 30px; }
+    h2, h4 { font-weight: bold; }
+    .card-title { font-size: 1.5rem; }
+    .table th, .table td { vertical-align: middle; }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav id="sidebar" class="bg-dark text-white p-3">
+  <h4 class="text-white">Neuro puls</h4>
+  <ul class="nav flex-column mt-4">
+    <li class="nav-item"><a href="admin-dashboard.html" class="nav-link text-white">📊 Boshqaruv Paneli</a></li>
+    <li class="nav-item"><a href="registration.html" class="nav-link text-white">📋 Ro'yxatdan o'tkazish</a></li>
+    <li class="nav-item"><a href="patients.html" class="nav-link text-white">👥 Barcha Bemorlar</a></li>
+    <li class="nav-item"><a href="all-patients.html" class="nav-link text-white">🗃️ Eski Ro'yxat</a></li>
+    <li class="nav-item"><a href="patient_selection.html" class="nav-link text-white">🎯 Bemor Tanlash</a></li>
+    <li class="nav-item mt-2"><hr class="text-secondary"></li>
+    <li class="nav-item"><a href="cash-register.html" class="nav-link text-white">💰 Kassa</a></li>
+    <li class="nav-item"><a href="cash-register-all.html" class="nav-link text-white">💳 Barcha To'lovlar</a></li>
+    <li class="nav-item"><a href="price-management.html" class="nav-link text-white">🧾 Narx Boshqaruvi</a></li>
+    <li class="nav-item mt-2"><hr class="text-secondary"></li>
+    <li class="nav-item"><a href="doctor.html" class="nav-link text-white">🧑‍⚕️ Shifokorlar</a></li>
+    <li class="nav-item"><a href="doctor-add.html" class="nav-link text-white">➕ Shifokor Qo'shish</a></li>
+    <li class="nav-item"><a href="doctor-patient-rooms.html" class="nav-link text-white">📌 Shifokor Xonalari</a></li>
+    <li class="nav-item"><a href="doctor-payments.html" class="nav-link text-white">💵 Shifokor To'lovlari</a></li>
+    <li class="nav-item mt-2"><hr class="text-secondary"></li>
+    <li class="nav-item"><a href="treatment-room-management.html" class="nav-link text-white">🛏️ Xona Boshqaruvi</a></li>
+    <li class="nav-item"><a href="treatment-room-payments.html" class="nav-link text-white">🏥 Xona To'lovlari</a></li>
+    <li class="nav-item"><a href="treatment-registration.html" class="nav-link text-white">➕ Xonaga Biriktirish</a></li>
+    <li class="nav-item mt-2"><hr class="text-secondary"></li>
+    <li class="nav-item"><a href="services.html" class="nav-link text-white">🔬 Xizmatlar</a></li>
+    <li class="nav-item"><a href="treatment.html" class="nav-link text-white">🧪 Davolash</a></li>
+    <li class="nav-item mt-2"><hr class="text-secondary"></li>
+    <li class="nav-item"><a href="archive.html" class="nav-link text-white">🗄️ Arxiv</a></li>
+    <li class="nav-item"><a href="index.html" class="nav-link text-white">🏠 Bosh Sahifa</a></li>
+    <li class="nav-item"><a href="turn-display.html" class="nav-link text-white">📺 Navbat Ekrani</a></li>
+  </ul>
+</nav>
+
+<!-- Main Content -->
+<div class="container mt-5">
+  <h2 class="mb-4">📊 Admin Paneli</h2>
+
+  <!-- Filter -->
+  <form id="filter-form" class="row g-3 mb-4">
+    <div class="col-md-3">
+      <label for="start-date" class="form-label">Boshlanish sanasi</label>
+      <input type="date" id="start-date" class="form-control">
+    </div>
+    <div class="col-md-3">
+      <label for="end-date" class="form-label">Tugash sanasi</label>
+      <input type="date" id="end-date" class="form-control">
+    </div>
+    <div class="col-md-3 align-self-end">
+      <button type="submit" class="btn btn-primary w-100">Filtrlash</button>
+    </div>
+  </form>
+
+  <!-- KPI Cards -->
+
+    <div class="row mb-4">
+  <div class="col-md-6">
+    <div class="card text-white bg-secondary mb-3">
+      <div class="card-header">Xizmat Daromadi</div>
+      <div class="card-body">
+        <h5 class="card-title" id="service-profit">Yuklanmoqda...</h5>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card text-white bg-warning mb-3">
+      <div class="card-header">Shifokor Daromadi</div>
+      <div class="card-body">
+        <h5 class="card-title" id="doctor-profit">Yuklanmoqda...</h5>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row mb-4">
+  <div class="col-md-6">
+    <div class="card text-white bg-info mb-3">
+      <div class="card-header">Xona Daromadi</div>
+      <div class="card-body">
+        <h5 class="card-title" id="treatment-room-profit">Yuklanmoqda...</h5>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+  <!-- Charts -->
+  <h4 class="mt-5">Daromad Turlari Bo'yicha</h4>
+  <div class="row">
+    <div class="col-md-6">
+      <canvas id="doctorProfitChart" height="250"></canvas>
+    </div>
+    <div class="col-md-6">
+      <canvas id="serviceProfitChart" height="250"></canvas>
+    </div>
+  </div>
+
+  <div class="row mt-4">
+    <div class="col-md-12">
+      <canvas id="monthlyComparisonChart" height="250"></canvas>
+    </div>
+  </div>
+
+  <!-- Recent Transactions -->
+  <h4 class="mt-5">So‘nggi Tranzaksiyalar</h4>
+  <div class="table-responsive">
+    <table class="table table-bordered table-striped mt-3">
+      <thead class="table-dark">
+        <tr>
+          <th>ID</th>
+          <th>Bemor</th>
+          <th>Turi</th>
+          <th>To‘lov Usuli</th>
+          <th>Xizmatlar</th>
+          <th>Miqdor</th>
+          <th>Sana</th>
+        </tr>
+      </thead>
+      <tbody id="transaction-table">
+        <tr><td colspan="7" class="text-center">Yuklanmoqda...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/admin-dashboard.js"></script>
+</body>
+</html>

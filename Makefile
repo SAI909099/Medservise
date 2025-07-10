@@ -10,6 +10,10 @@ load_data:
 celery:
 	celery -A root worker --loglevel=info
 
+
+beat:
+	celery -A root beat -l info
+
 flush:
 	python3 manage.py flush --no-input
 

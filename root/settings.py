@@ -48,6 +48,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'root.urls'
 AUTH_USER_MODEL = 'apps.User'
+CORS_ALLOW_ALL_ORIGINS = True
 
 TEMPLATES = [
     {
@@ -162,7 +163,6 @@ LOGOUT_URL = 'logout'
 LOGIN_REDIRECT_URL = '/'
 ACCOUNT_LOGOUT_URL = 'login'
 
-CORS_ALLOW_ALL_ORIGINS = True
 
 
 
@@ -176,3 +176,6 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(minute='*'),  # 🔁 Every minute
     },
 }
+
+
+

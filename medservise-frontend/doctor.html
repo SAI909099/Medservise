@@ -1,39 +1,100 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uz">
 <head>
   <meta charset="UTF-8">
-  <title>Doctor Dashboard</title>
+  <title>Shifokor Paneli</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="js/doctor.js" defer></script>
+  <style>
+    body {
+      display: flex;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    .sidebar {
+      width: 250px;
+      background-color: #f8f9fa;
+      padding-top: 20px;
+      border-right: 1px solid #dee2e6;
+    }
+
+    .sidebar a {
+      display: block;
+      padding: 10px 20px;
+      color: #333;
+      text-decoration: none;
+    }
+
+    .sidebar a:hover {
+      background-color: #e9ecef;
+    }
+
+    .main-content {
+      flex-grow: 1;
+      padding: 30px;
+    }
+
+    .filters {
+      gap: 10px;
+    }
+
+    input[type="date"] {
+      max-width: 170px;
+    }
+
+    input[type="text"] {
+      max-width: 200px;
+    }
+
+    .action-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .action-buttons button {
+      white-space: nowrap;
+    }
+  </style>
 </head>
-<body>
-  <div class="container mt-4">
-    <h2>Welcome, Doctor</h2>
-    <button class="btn btn-danger mb-3" onclick="logout()">Logout</button>
+<body class="bg-light">
 
-    <h4>My Appointments</h4>
-    <table class="table" id="appointments-table">
-      <thead>
-        <tr>
-          <th>Patient Name</th>
-          <th>Reason</th>
-          <th>Status</th>
-          <th>Created</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+<!-- Yon panel -->
+<div class="sidebar">
+  <h5 class="text-center">🩺 Medservise</h5>
+  <a href="doctor.html">📋 Bosh sahifa</a>
+  <a href="doctor-patient-rooms.html">🏥 Mening bemorlarim</a>
+  <a href="#" onclick="logout()">🚪 Chiqish</a>
+</div>
+
+<!-- Asosiy kontent -->
+<div class="main-content container">
+  <h2 class="mb-4">👨‍⚕️ Xush kelibsiz, Shifokor!</h2>
+
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap filters">
+    <div class="d-flex flex-wrap gap-2">
+      <button id="filter-today-btn" class="btn btn-primary">📅 Bugungi qabul</button>
+      <input type="date" id="date-filter" class="form-control">
+      <input type="text" id="search-name" class="form-control" placeholder="🔍 Bemor ismi bo'yicha qidirish">
+      <button id="apply-filters-btn" class="btn btn-outline-secondary">🔎 Qidirish</button>
+    </div>
+    <button class="btn btn-danger" onclick="logout()">🚪 Chiqish</button>
   </div>
-<!--<div class="d-flex justify-content-between align-items-center mt-3 mb-3">-->
-<!--  <h2>Your Appointments</h2>-->
-<!--  <button id="view-rooms-btn" class="btn btn-outline-info">View Treatment Rooms</button>-->
-<!--</div>-->
-<!--<div id="treatment-rooms" class="row mt-4" style="display: none;">-->
-<!--  <h4>Treatment Room Status</h4>-->
-<!--  <div id="room-list" class="d-flex flex-wrap gap-3"></div>-->
-<!--</div>-->
 
+  <table class="table table-bordered table-striped" id="appointments-table">
+    <thead class="table-light">
+      <tr>
+        <th>Bemor ismi</th>
+        <th>Sababi</th>
+        <th>Holati</th>
+        <th>Yaratilgan</th>
+        <th>Harakatlar</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
 
 </body>
 </html>

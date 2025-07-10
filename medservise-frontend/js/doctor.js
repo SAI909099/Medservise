@@ -1,156 +1,171 @@
 document.addEventListener("DOMContentLoaded", () => {
   const token = localStorage.getItem("token");
-
   if (!token) {
-    alert("You must log in first!");
+    alert("Avval tizimga kiring!");
     window.location.href = "index.html";
     return;
   }
 
-  fetch("http://localhost:8000/api/v1/my-appointments/", {
-    headers: {
-      "Authorization": `Bearer ${token}`
-    }
-  })
-    .then(res => res.json())
-    .then(data => {
-      const tableBody = document.querySelector("#appointments-table tbody");
-      tableBody.innerHTML = "";
+  const dateFilter = document.getElementById("date-filter");
+  const searchName = document.getElementById("search-name");
+  const tableBody = document.querySelector("#appointments-table tbody");
 
-      data.appointments.forEach(app => {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td>${app.patient.first_name} ${app.patient.last_name}</td>
-          <td>${app.reason}</td>
-          <td>${app.status}</td>
-          <td>${new Date(app.created_at).toLocaleString()}</td>
-          <td>
-            ${app.status === "queued"
-              ? `
-
-                <button class="btn btn-sm btn-success" onclick="markDone(${app.id})">Done</button>`
-              : ''}
-            <button class="btn btn-sm btn-info" onclick="viewInfo(${app.patient.id})">Info</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteApp(${app.id})">Delete</button>
-          </td>
-        `;
-        tableBody.appendChild(row);
-      });
-
-      // ✅ Populate available rooms for dropdown
-      fetch("http://localhost:8000/api/v1/treatment-rooms/", {
-        headers: { "Authorization": `Bearer ${token}` }
-      })
-        .then(res => res.json())
-        .then(rooms => {
-          document.querySelectorAll(".room-dropdown").forEach(select => {
-            rooms.forEach(room => {
-              if (!room.is_busy) {
-                const option = document.createElement("option");
-                option.value = room.id;
-                option.textContent = `Room ${room.id}`;
-                select.appendChild(option);
-              }
-            });
-          });
-        });
-
-      // ✅ Assign room to appointment
-      document.querySelectorAll(".assign-btn").forEach(button => {
-        button.addEventListener("click", () => {
-          const appId = button.getAttribute("data-app-id");
-          const select = document.querySelector(`.room-dropdown[data-app-id="${appId}"]`);
-          const roomId = select.value;
-
-          if (!roomId) {
-            alert("Please select a room.");
-            return;
-          }
-
-          fetch("http://localhost:8000/api/v1/assign-room/", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${token}`
-            },
-            body: JSON.stringify({ appointment_id: appId, room_id: roomId })
-          })
-            .then(res => res.json())
-            .then(() => window.location.reload())
-            .catch(err => alert("Assignment failed"));
-        });
-      });
+  function loadAppointments(date = null, search = "") {
+    fetch("http://localhost:8000/api/v1/my-appointments/", {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
     })
-    .catch(err => {
-      console.error("Error loading appointments:", err);
-      alert("Could not load appointments.");
-    });
+      .then(res => res.json())
+      .then(data => {
+        tableBody.innerHTML = "";
+        let appointments = data.appointments;
 
-  // ✅ Toggle room visibility
-  const viewRoomsBtn = document.getElementById("view-rooms-btn");
-  if (viewRoomsBtn) {
-    viewRoomsBtn.addEventListener("click", function () {
-      fetch("http://localhost:8000/api/v1/treatment-rooms/", {
-        headers: {
-          "Authorization": `Bearer ${token}`
+        // Filter by date if selected
+        if (date) {
+          const selectedDate = new Date(date).toDateString();
+          appointments = appointments.filter(app =>
+            new Date(app.created_at).toDateString() === selectedDate
+          );
         }
-      })
-        .then(res => res.json())
-        .then(data => {
-          const roomList = document.getElementById("room-list");
-          roomList.innerHTML = "";
 
-          data.forEach(room => {
-            const card = document.createElement("div");
-            card.className = `card p-3 m-2 ${room.is_busy ? 'bg-danger text-white' : 'bg-success text-white'}`;
-            card.style.width = '200px';
-            card.innerHTML = `
-              <h5>Room ${room.id}</h5>
-              <p>Status: ${room.is_busy ? "Busy" : "Available"}</p>
-            `;
-            roomList.appendChild(card);
-          });
+        // Filter by name if typed
+        if (search.trim() !== "") {
+          const lowerSearch = search.toLowerCase();
+          appointments = appointments.filter(app =>
+            `${app.patient.first_name} ${app.patient.last_name}`.toLowerCase().includes(lowerSearch)
+          );
+        }
 
-          document.getElementById("treatment-rooms").style.display = "block";
-        })
-        .catch(err => {
-          console.error("Room fetch error:", err);
-          alert("Could not load treatment rooms.");
+        // Render appointments
+        appointments.forEach(app => {
+          const row = document.createElement("tr");
+          const createdAt = new Date(app.created_at).toLocaleString();
+          const fullName = `${app.patient.first_name} ${app.patient.last_name}`;
+          const isQueued = app.status === "queued";
+
+          const buttons = `
+            <div class="d-flex flex-column gap-1">
+              ${isQueued ? `
+                <button class="btn btn-sm btn-warning" onclick="callPatient(${app.id})">📣 Chaqirish</button>
+                <button class="btn btn-sm btn-success" onclick="markDone(${app.id})">✅ Bajarildi</button>
+              ` : ""}
+              <button class="btn btn-sm btn-info" onclick="viewInfo(${app.patient.id})">ℹ️ Maʼlumot</button>
+              <button class="btn btn-sm btn-danger" onclick="confirmDelete(${app.id})">🗑️ Oʻchirish</button>
+            </div>
+          `;
+
+          row.innerHTML = `
+            <td>${fullName}</td>
+            <td>${app.reason}</td>
+            <td>${app.status}</td>
+            <td>${createdAt}</td>
+            <td>${buttons}</td>
+          `;
+          tableBody.appendChild(row);
         });
-    });
+      })
+      .catch(err => {
+        console.error("Xatolik qabul olishda:", err);
+        alert("Qabul roʻyxatini yuklab boʻlmadi.");
+      });
   }
+
+  // Bugungi sana bo'yicha filter
+  document.getElementById("filter-today-btn")?.addEventListener("click", () => {
+    const today = new Date().toISOString().split("T")[0];
+    dateFilter.value = today;
+    loadAppointments(today, searchName.value);
+  });
+
+  // Apply filter with date + name
+  document.getElementById("apply-filters-btn")?.addEventListener("click", () => {
+    const selectedDate = dateFilter.value;
+    const nameQuery = searchName.value;
+    loadAppointments(selectedDate || null, nameQuery);
+  });
+
+  // Dastlabki yuklash
+  loadAppointments();
 });
 
-// ✅ Done button logic
+// ✅ Qabulni bajarilgan deb belgilash
 function markDone(id) {
   const token = localStorage.getItem("token");
   fetch(`http://localhost:8000/api/v1/my-appointments/${id}/`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
+      Authorization: `Bearer ${token}`
     },
     body: JSON.stringify({ status: "done" })
-  }).then(() => window.location.reload());
+  })
+    .then(res => res.json())
+    .then(() => fetch(`http://localhost:8000/api/v1/clear-call/${id}/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` }
+    }))
+    .then(() => window.location.reload())
+    .catch(err => {
+      console.error(err);
+      alert("❌ Qabulni yakunlab boʻlmadi.");
+    });
 }
 
-// ✅ Delete button logic
+// ✅ Bemorni chaqirish
+function callPatient(appointmentId) {
+  const token = localStorage.getItem("token");
+
+  fetch(`http://localhost:8000/api/v1/call-patient/${appointmentId}/`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  })
+    .then(res => {
+      if (!res.ok) throw new Error("Chaqirishda xatolik");
+      return res.json();
+    })
+    .then(() => {
+      new Audio("/static/sound/beep.wav").play();
+      alert("🔔 Bemor chaqirildi!");
+      const btn = document.querySelector(`button[onclick="callPatient(${appointmentId})"]`);
+      if (btn) {
+        btn.textContent = "🔁 Qayta chaqirish";
+        btn.classList.remove("btn-warning");
+        btn.classList.add("btn-secondary");
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      alert("❌ Chaqirishda xatolik.");
+    });
+}
+
+// ✅ O'chirishni tasdiqlash va bajarish
+function confirmDelete(id) {
+  if (confirm("Rostdan ham ushbu qabuli o‘chirmoqchimisiz?")) {
+    deleteApp(id);
+  }
+}
+
+// ✅ Qabulni o'chirish
 function deleteApp(id) {
   const token = localStorage.getItem("token");
   fetch(`http://localhost:8000/api/v1/my-appointments/${id}/`, {
     method: "DELETE",
     headers: {
-      "Authorization": `Bearer ${token}`
+      Authorization: `Bearer ${token}`
     }
   }).then(() => window.location.reload());
 }
 
-// ✅ Info button logic → redirect to patient-detail.html with ID
+// ✅ Bemor ma'lumotiga o'tish
 function viewInfo(patientId) {
   window.location.href = `patient-detail.html?patient_id=${patientId}`;
 }
 
-// ✅ Logout
+// ✅ Chiqish
 function logout() {
   localStorage.removeItem("token");
   window.location.href = "index.html";

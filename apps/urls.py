@@ -1,5 +1,7 @@
 # ✅ FIXED urls.py
 from django.urls import path
+
+from apps.models import CallTurnView
 from apps.views import (
     # Auth
     RegisterAPIView, VerifyEmailAPIView, LoginAPIView, UserInfoListCreateAPIView,
@@ -32,7 +34,11 @@ from apps.views import (
 
     # Cash Register
     CashRegistrationListView, CashRegistrationView, CashRegisterReceiptView,
-    CashRegisterListAPIView, CashRegisterListCreateAPIView, RecentPatientsAPIView
+    CashRegisterListAPIView, CashRegisterListCreateAPIView, RecentPatientsAPIView, TreatmentRegistrationListCreateView,
+    TreatmentDischargeView, TreatmentMoveView, DoctorPatientRoomView, GenerateTurnView, CallPatientView,
+    CurrentCallsView, PrintTurnView, ClearCallView, AdminStatisticsView, RecentTransactionsView, AdminChartDataView,
+    TreatmentPaymentReceiptView, PrintTreatmentReceiptView, PrintTreatmentRoomReceiptView, TreatmentRoomStatsView,
+    AccountantDashboardView, OutcomeListCreateView
 )
 
 urlpatterns = [
@@ -97,4 +103,40 @@ urlpatterns = [
 
     path('recent-patients/', RecentPatientsView.as_view(), name='recent-patients'),
 
+    # --- Treatment Registration: Discharge & Move ---
+    path('treatment-registrations/', TreatmentRegistrationListCreateView.as_view(), name='treatment-registration-list-create'),
+
+
+
+    path("discharge-patient/<int:pk>/", TreatmentDischargeView.as_view(), name="discharge-patient"),
+    path("move-patient-room/<int:pk>/", TreatmentMoveView.as_view(), name="move-patient"),
+
+    path("doctor/my-patient-rooms/", DoctorPatientRoomView.as_view(), name="doctor-my-patient-rooms"),
+
+    path("generate-turn/", GenerateTurnView.as_view(), name="generate-turn"),
+    path("call-turn/", CallTurnView.as_view(), name="call-turn"),
+
+    path("call-patient/<int:appointment_id>/", CallPatientView.as_view(), name="call-patient"),
+    path("current-calls/", CurrentCallsView.as_view(), name="current-calls"),
+    path("print-turn/", PrintTurnView.as_view()),
+    path("clear-call/<int:appointment_id>/", ClearCallView.as_view()),
+
+
+    path('admin-statistics/', AdminStatisticsView.as_view(), name='admin-statistics'),
+    path('recent-transactions/', RecentTransactionsView.as_view(), name='recent-transactions'),
+
+    path('admin-chart-data/', AdminChartDataView.as_view(), name='admin-chart-data'),
+    path("treatment-room-payments/receipt/<int:id>/", TreatmentPaymentReceiptView.as_view()),
+    path("treatment-room-payments/print/", PrintTreatmentReceiptView.as_view(), name="treatment-room-print"),
+    path("treatment-room-payments/room-print/", PrintTreatmentRoomReceiptView.as_view(),name="treatment-room-direct-print"),
+    path("admin/treatment-room-stats/", TreatmentRoomStatsView.as_view()),
+
+    path("accounting-dashboard/", AccountantDashboardView.as_view(), name="accounting-dashboard"),
+    path("incomes/", AccountantDashboardView.as_view(), name="income-list"),  # alias
+    path("doctor-income/", AccountantDashboardView.as_view(), name="doctor-income"),  # alias
+    path("accountant/outcomes/", OutcomeListCreateView.as_view(), name="outcome-list-create"),
+
+
 ]
+
+

@@ -16,15 +16,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let allServices = [];
 
-  // Load doctors
+  // Load doctor list
   fetch("http://localhost:8000/api/v1/doctor-list/", { headers })
     .then(res => res.json())
     .then(doctors => {
       doctors.forEach(doc => {
         const option = document.createElement("option");
         option.value = doc.id;
-        option.textContent = `${doc.name}`;
-        option.dataset.price = doc.consultation_price;
+        option.textContent = doc.name;
+        option.dataset.price = doc.consultation_price || 0;
         doctorSelect.appendChild(option);
       });
     });
@@ -41,9 +41,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const selectedPrice = parseFloat(doctorSelect.options[doctorSelect.selectedIndex].dataset.price || 0);
     document.getElementById("expected_fee").value = selectedPrice.toFixed(2);
 
-    // Show services related to selected doctor
+    // Filter services for the selected doctor
     serviceContainer.innerHTML = "";
-    const filtered = allServices.filter(s => s.doctor.id === selectedDoctorId);
+    const filtered = allServices.filter(s => s.doctor?.id === selectedDoctorId);
 
     filtered.forEach(service => {
       const div = document.createElement("div");
@@ -71,49 +71,78 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("total_fee").value = total.toFixed(2);
   }
 
-  // Submit
-  form.addEventListener("submit", (e) => {
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
+
+    const doctorId = parseInt(doctorSelect.value);
+    if (isNaN(doctorId)) {
+      alert("Please select a doctor.");
+      return;
+    }
 
     const selectedServiceIds = Array.from(document.querySelectorAll(".service-checkbox:checked"))
       .map(el => parseInt(el.dataset.id));
 
     const data = {
-      first_name: document.getElementById("first_name").value,
-      last_name: document.getElementById("last_name").value,
+      first_name: document.getElementById("first_name").value.trim(),
+      last_name: document.getElementById("last_name").value.trim(),
       age: parseInt(document.getElementById("age").value),
-      phone: document.getElementById("phone").value,
-      address: document.getElementById("address").value,
-      doctor_id: parseInt(doctorSelect.value),
-      reason: document.getElementById("reason").value,
-      services: selectedServiceIds
+      phone: document.getElementById("phone").value.trim(),
+      address: document.getElementById("address").value.trim(),
+      doctor_id: doctorId,
+      reason: document.getElementById("reason").value.trim(),
+      services: selectedServiceIds,
+      amount_paid: parseFloat(document.getElementById("total_fee").value || 0),
+      amount_owed: 0
     };
 
-    fetch("http://localhost:8000/api/v1/register-patient/", {
-      method: "POST",
-      headers: { ...headers, "Content-Type": "application/json" },
-      body: JSON.stringify(data)
-    })
-      .then(res => {
-        if (!res.ok) throw new Error("Registration failed");
-        return res.json();
-      })
-      .then(() => {
-        alert("✅ Patient registered successfully");
-        form.reset();
-        serviceContainer.innerHTML = "";
-        document.getElementById("expected_fee").value = "";
-        document.getElementById("total_fee").value = "";
-      })
-      .catch(err => {
-        console.error(err);
-        alert("❌ Error: Could not register patient.");
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/register-patient/", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(data)
       });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error("Registration failed: " + errorText);
+      }
+
+      const result = await res.json();
+      alert("✅ Patient registered successfully!");
+
+      // Print via backend
+      const printRes = await fetch("http://localhost:8000/api/v1/print-turn/", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patient_name: `${result.patient.first_name} ${result.patient.last_name}`,
+          doctor_name: result.doctor_name,
+          turn_number: result.turn_number
+        })
+      });
+
+      if (!printRes.ok) {
+        const printErr = await printRes.text();
+        throw new Error("🖨️ Print error: " + printErr);
+      }
+
+      console.log("🖨️ USB receipt printed");
+
+      // Reset form
+      form.reset();
+      serviceContainer.innerHTML = "";
+      document.getElementById("expected_fee").value = "";
+      document.getElementById("total_fee").value = "";
+
+    } catch (err) {
+      console.error("❌ Error:", err.message);
+      alert("❌ Error: " + err.message);
+    }
   });
 });
 
-// ✅ Logout
 function logout() {
   localStorage.removeItem("token");
-  window.location.href = "index.html";
+  location.href = "index.html";
 }
