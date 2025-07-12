@@ -115,6 +115,8 @@ class LoginUserModelSerializer(serializers.Serializer):
             raise ValidationError("Invalid email or password")
 
         r.delete(redis_key)
+
+        # ✅ Store user to use later in the view
         attrs['user'] = user
         return attrs
 

@@ -53,9 +53,9 @@
 
 <div class="sidebar">
   <h5 class="text-center">🩺 Medservise</h5>
-  <a href="doctor.html">📋 Bosh sahifa</a>
-  <a href="doctor-patient-rooms.html">🏥 Mening bemorlarim</a>
-  <a href="#" onclick="logout()">🚪 Chiqish</a>
+  <a href="/doctor">📋 Bosh sahifa</a>
+  <a href="/doctor-patient-rooms">🏥 Mening bemorlarim</a>
+  <a href="/" onclick="logout()">🚪 Chiqish</a>
 </div>
 
   <div class="container">
@@ -68,7 +68,7 @@
       const token = localStorage.getItem("token");
       if (!token) {
         alert("Please log in.");
-        window.location.href = "index.html";
+        window.location.href = "/";
         return;
       }
 

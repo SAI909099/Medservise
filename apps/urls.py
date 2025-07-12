@@ -1,6 +1,7 @@
 # ✅ FIXED urls.py
 from django.urls import path
 
+from apps.frontend_views import UserProfileView
 from apps.models import CallTurnView
 from apps.views import (
     # Auth
@@ -38,7 +39,7 @@ from apps.views import (
     TreatmentDischargeView, TreatmentMoveView, DoctorPatientRoomView, GenerateTurnView, CallPatientView,
     CurrentCallsView, PrintTurnView, ClearCallView, AdminStatisticsView, RecentTransactionsView, AdminChartDataView,
     TreatmentPaymentReceiptView, PrintTreatmentReceiptView, PrintTreatmentRoomReceiptView, TreatmentRoomStatsView,
-    AccountantDashboardView, OutcomeListCreateView
+    AccountantDashboardView, OutcomeListCreateView, UserProfileAPIView
 )
 
 urlpatterns = [
@@ -135,6 +136,10 @@ urlpatterns = [
     path("incomes/", AccountantDashboardView.as_view(), name="income-list"),  # alias
     path("doctor-income/", AccountantDashboardView.as_view(), name="doctor-income"),  # alias
     path("accountant/outcomes/", OutcomeListCreateView.as_view(), name="outcome-list-create"),
+
+    path("profile/", UserProfileAPIView.as_view(), name="profile"),
+
+
 
 
 ]

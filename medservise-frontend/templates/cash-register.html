@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <title>Kassa Paneli</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/cash.css" />
+  <link rel="stylesheet" href="../static/css/cash.css" />
   <style>
     body {
       display: flex;
@@ -41,11 +41,11 @@
   <!-- Sidebar -->
   <div class="sidebar">
     <h4>📋 Neuro Pulce</h4>
-    <a href="cash-register.html">💰 Kassa</a>
-    <a href="treatment-room-payments.html">🏥 Davolash Xonasi Toʻlovlari</a>
+    <a href="/cash-register">💰 Kassa</a>
+    <a href="/treatment-room-payments">🏥 Davolash Xonasi Toʻlovlari</a>
     <div>  -----------------------------------------------------</div>
-    <a href="turn-display.html">🔁 Navbat Ekrani</a>
-    <a href="#" onclick="logout()">🚪 Chiqish</a>
+    <a href="/turn-display">🔁 Navbat Ekrani</a>
+    <a href="/" onclick="logout()">🚪 Chiqish</a>
   </div>
 
   <!-- Main content -->
@@ -116,10 +116,10 @@
             <div class="col-md-3">
               <label class="form-label">Toʻlov summasi</label>
               <input type="number" id="amount" class="form-control" step="0.01" min="0" required readonly />
-              <div class="form-check mt-1">
-                <input class="form-check-input" type="checkbox" id="edit-amount-checkbox" />
-                <label class="form-check-label" for="edit-amount-checkbox">Summani tahrirlash</label>
-              </div>
+<!--              <div class="form-check mt-1">-->
+<!--                <input class="form-check-input" type="checkbox" id="edit-amount-checkbox" />-->
+<!--                <label class="form-check-label" for="edit-amount-checkbox">Summani tahrirlash</label>-->
+<!--              </div>-->
             </div>
 
             <div class="col-md-3">
@@ -172,7 +172,7 @@
   </div>
 
   <!-- Asosiy skript -->
-  <script src="js/cash_register.js"></script>
+  <script src="../static/js/cash_register.js"></script>
 </body>
 
 </html>

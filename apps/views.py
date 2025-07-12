@@ -1,7 +1,7 @@
 import random
 import string
 from decimal import Decimal
-
+import json
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.db.models import DecimalField, ExpressionWrapper, F
 from django.db.models.functions import Coalesce
@@ -14,6 +14,7 @@ from drf_spectacular.utils import extend_schema
 from escpos.printer import Usb
 from rest_framework import generics
 from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.generics import GenericAPIView, ListCreateAPIView, RetrieveUpdateDestroyAPIView, RetrieveAPIView, \
     ListAPIView
@@ -95,11 +96,13 @@ class LoginAPIView(GenericAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data['user']
         refresh = RefreshToken.for_user(user)
+
         return Response({
             'refresh': str(refresh),
             'access': str(refresh.access_token),
+            'role': user.role if hasattr(user, 'role') else None,
+            'is_admin': user.is_superuser  # or user.is_admin if you have that field
         }, status=status.HTTP_200_OK)
-
 
 @extend_schema(tags=['Access-Token'])
 class ActivateUserView(APIView):
@@ -1286,11 +1289,9 @@ class PrintTreatmentReceiptView(APIView):
         except TreatmentPayment.DoesNotExist:
             return Response({"error": "To‘lov topilmadi"}, status=404)
 
-        # 🔍 Get patient and user
         patient = payment.patient
         user = payment.created_by
 
-        # 🔍 Try to find doctor from active TreatmentRegistration
         try:
             registration = TreatmentRegistration.objects.filter(
                 patient=patient, discharged_at__isnull=True
@@ -1300,7 +1301,7 @@ class PrintTreatmentReceiptView(APIView):
             doctor = None
 
         try:
-            p = Usb(0x0483, 0x070b)  # XPrinter
+            p = Usb(0x0483, 0x070b)
             p.set(align='center', text_type='B', width=2, height=2)
             p.text("🏥 Medservise Klinikasi\n\n")
             p.set(align='left')
@@ -1311,6 +1312,20 @@ class PrintTreatmentReceiptView(APIView):
             p.text(f"Shifokor: {doctor.get_full_name() if doctor else '-'}\n")
             p.text(f"Izoh: {payment.notes or '—'}\n")
             p.text(f"Sana: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
+
+            # ✅ Add QR Code
+            qr_data = json.dumps({
+                "name": f"{patient.first_name} {patient.last_name}",
+                "amount": str(payment.amount),
+                "payment_method": payment.payment_method,
+                "doctor": doctor.get_full_name() if doctor else "-",
+                "status": payment.status,
+                "note": payment.notes or "",
+                "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }, ensure_ascii=False)
+
+            p.text("\n")
+            p.qr(qr_data, size=6)
             p.text("\n✅ Rahmat!\n\n")
             p.cut()
 
@@ -1350,12 +1365,29 @@ class PrintTreatmentRoomReceiptView(APIView):
             p.text(f"Shifokor: {payment.created_by.get_full_name() if payment.created_by else '-'}\n")
             p.text(f"Izoh: {payment.notes or '—'}\n")
             p.text(f"Sana: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
+
+            # ✅ QR Code generation
+            qr_data = json.dumps({
+                "name": f"{payment.patient.first_name} {payment.patient.last_name}",
+                "amount": str(payment.amount),
+                "payment_method": payment.payment_method,
+                "status": payment.status,
+                "note": payment.notes or "",
+                "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }, ensure_ascii=False)
+
+            p.text("\n")
+            p.qr(qr_data, size=6)
             p.text("\n Rahmat!\n\n")
             p.cut()
+
             return Response({"success": True}, status=200)
         except Exception as e:
             logger.exception("❌ USB printerda xatolik!")
             return Response({"error": str(e)}, status=500)
+
+
+
 
 class TreatmentRoomStatsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -1484,3 +1516,29 @@ class OutcomeListCreateView(generics.ListCreateAPIView):
         if start and end:
             qs = qs.filter(created_at__date__range=[start, end])
         return qs
+
+class UserProfileAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        return Response({
+            "id": user.id,
+            "email": user.email,
+            "is_superuser": user.is_superuser,
+            "role": user.role if hasattr(user, "role") else None,
+        })
+
+
+# @api_view(['GET'])
+# @permission_classes([IsAuthenticated])
+# def profile_view(request):
+#     user = request.user
+#     return Response({
+#         "id": user.id,
+#         "email": user.email,
+#         "role": getattr(user, "role", None),  # Optional: if you store role
+#         "is_superuser": user.is_superuser,
+#         "is_staff": user.is_staff,
+#         "full_name": user.get_full_name() if hasattr(user, "get_full_name") else "",
+#     })

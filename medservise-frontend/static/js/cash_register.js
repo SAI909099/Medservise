@@ -1,5 +1,3 @@
-// js/cash_register.js
-
 class CashRegister {
     constructor() {
         this.token = localStorage.getItem("token");
@@ -25,9 +23,7 @@ class CashRegister {
         document.getElementById("cash-form")?.addEventListener("submit", (e) => this.submitPayment(e));
         document.getElementById("transaction_type")?.addEventListener("change", (e) => this.toggleServiceSelect(e.target.value));
 
-        document.getElementById("edit-amount-checkbox")?.addEventListener("change", (e) => {
-            document.getElementById("amount").readOnly = !e.target.checked;
-        });
+        // Removed: edit-amount-checkbox listener
     }
 
     formatAmount(amount) {
@@ -180,7 +176,6 @@ class CashRegister {
             this.toggleServiceSelect(txType);
 
             const amountField = document.getElementById("amount");
-            const editCheckbox = document.getElementById("edit-amount-checkbox");
 
             if (txType === "consultation") {
                 amountField.value = parseFloat(balance || 0).toFixed(2);
@@ -188,8 +183,6 @@ class CashRegister {
                 amountField.value = parseFloat(patient.patients_service?.price || 0).toFixed(2);
             }
             amountField.readOnly = true;
-            editCheckbox.checked = false;
-            editCheckbox.disabled = false;
 
             this.renderTransactions(data.transactions);
         } catch (err) {
@@ -231,7 +224,6 @@ class CashRegister {
                 <td>${methodMap[tx.payment_method] || tx.payment_method}</td>
                 <td>${new Date(tx.created_at).toLocaleString()}</td>
             `;
-
             tbody.appendChild(row);
         });
     }
@@ -274,49 +266,68 @@ class CashRegister {
     }
 
     async printReceipt(id) {
-        try {
-            const res = await this.authFetch(`${this.apiBase}/cash-register/receipt/${id}/`);
-            if (!res.ok) throw new Error("Failed to fetch receipt");
-            const data = await res.json();
+    try {
+        const res = await this.authFetch(`${this.apiBase}/cash-register/receipt/${id}/`);
+        if (!res.ok) throw new Error("Failed to fetch receipt");
+        const data = await res.json();
 
-            const printWindow = window.open("", "printWindow");
-            const html = `
-            <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <title>Receipt</title>
-                    <style>
-                        body { font-family: sans-serif; padding: 20px; }
-                        h2 { margin-bottom: 10px; }
-                        p { margin: 4px 0; }
-                    </style>
-                </head>
-                <body>
-                    <h2>Chek raqami: ${data.receipt_number}</h2>
-                    <p><strong>Sana:</strong> ${data.date}</p>
-                    <p><strong>Bemor:</strong> ${data.patient_name}</p>
-                    <p><strong>To‘lov turi:</strong> ${data.transaction_type}</p>
-                    <p><strong>Miqdori:</strong> ${this.formatCurrency(data.amount)}</p>
-                    <p><strong>To‘lov usuli:</strong> ${data.payment_method}</p>
-                    <p><strong>Qabul qiluvchi:</strong> ${data.processed_by}</p>
-                    ${data.notes ? `<p><strong>Izoh:</strong> ${data.notes}</p>` : ""}
-                    <script>
-                        setTimeout(() => {
-                            window.print();
-                            window.close();
-                        }, 300);
-                    </script>
-                </body>
-            </html>`;
+        const qrText = JSON.stringify({
+            name: data.patient_name,
+            amount: data.amount,
+            method: data.payment_method,
+            status: data.status,
+            notes: data.notes || "",
+            date: data.date,
+            processed_by: data.processed_by
+        });
 
-            printWindow.document.open();
-            printWindow.document.write(html);
-            printWindow.document.close();
+        const encodedQR = encodeURIComponent(qrText);
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodedQR}&size=150x150`;
 
-        } catch (err) {
-            alert("❌ Print failed");
-            console.error(err);
-        }
+        const printWindow = window.open("", "printWindow");
+        const html = `
+        <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Receipt</title>
+                <style>
+                    body { font-family: sans-serif; padding: 20px; }
+                    h2 { margin-bottom: 10px; }
+                    p { margin: 4px 0; }
+                    .qr { margin-top: 20px; text-align: center; }
+                    .qr img { width: 150px; height: 150px; }
+                </style>
+            </head>
+            <body>
+                <h2>Chek raqami: ${data.receipt_number}</h2>
+                <p><strong>Sana:</strong> ${data.date}</p>
+                <p><strong>Bemor:</strong> ${data.patient_name}</p>
+                <p><strong>To‘lov turi:</strong> ${data.transaction_type}</p>
+                <p><strong>Miqdori:</strong> ${this.formatCurrency(data.amount)}</p>
+                <p><strong>To‘lov usuli:</strong> ${data.payment_method}</p>
+                <p><strong>Qabul qiluvchi:</strong> ${data.processed_by}</p>
+                ${data.notes ? `<p><strong>Izoh:</strong> ${data.notes}</p>` : ""}
+                <div class="qr">
+                    <p><strong>QR kod (chek maʼlumotlari):</strong></p>
+                    <img src="${qrUrl}" alt="QR Code">
+                </div>
+                <script>
+                    setTimeout(() => {
+                        window.print();
+                        window.close();
+                    }, 300);
+                </script>
+            </body>
+        </html>`;
+
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+
+    } catch (err) {
+        alert("❌ Print failed");
+        console.error(err);
+    }
     }
 }
 

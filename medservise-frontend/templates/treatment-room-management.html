@@ -47,7 +47,7 @@
 <!-- Sidebar -->
 <div class="sidebar">
   <h5 class="text-center">🩺 Medservise</h5>
-  <a href="registration.html">🏥 Bemorni ro'yxatdan o'tkazish</a>
+  <a href="registration">🏥 Bemorni ro'yxatdan o'tkazish</a>
   <div class="accordion" id="treatmentRoomAccordion">
     <div class="accordion-item border-0">
       <h2 class="accordion-header">
@@ -57,13 +57,13 @@
       </h2>
       <div id="treatmentRoomCollapse" class="accordion-collapse collapse">
         <div class="accordion-body py-1 px-3">
-          <a href="treatment-registration.html" class="d-block py-1 ps-3">• Bemorni joylashtirish</a>
-          <a href="treatment-room-management.html" class="d-block py-1 ps-3">• Yotoqxona boshqaruvi</a>
+          <a href="/treatment-registration" class="d-block py-1 ps-3">• Bemorni joylashtirish</a>
+          <a href="/treatment-room-management" class="d-block py-1 ps-3">• Yotoqxona boshqaruvi</a>
         </div>
       </div>
     </div>
   </div>
-  <a href="turn-display.html">📢 Navbat ekran</a>
+  <a href="/turn-display">📢 Navbat ekran</a>
 </div>
 
 <!-- Main Content -->
@@ -99,7 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const token = localStorage.getItem("token");
   if (!token) {
     alert("Iltimos, tizimga kiring.");
-    window.location.href = "index.html";
+    window.location.href = "/";
     return;
   }
 

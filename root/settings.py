@@ -1,7 +1,7 @@
 
 from os.path import join
 from pathlib import Path
-
+import os
 from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-%kcr2tr632wfv5!e#%5rezbg78!$nw06f$8kv-l@k@*%u(=%_7'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
@@ -111,7 +111,7 @@ USE_I18N = True
 
 USE_TZ = True
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = join(BASE_DIR / 'static')
 
 MEDIA_URL = 'media/'
@@ -177,5 +177,12 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
+TEMPLATES[0]['DIRS'] = [
+    os.path.join(BASE_DIR, 'medservise-frontend', 'templates'),
+]
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'medservise-frontend', 'static'),
+]
 
 
