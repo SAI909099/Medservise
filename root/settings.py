@@ -75,7 +75,7 @@ WSGI_APPLICATION = 'root.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        "NAME": "medicalservice",
+        "NAME": "neuro-test",
         "USER": "postgres",
         "PASSWORD": "1",
         "HOST": "localhost",

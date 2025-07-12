@@ -23,7 +23,6 @@ function fetchDashboardData(start = '', end = '') {
     })
     .then(data => {
       renderSummary(data);
-      renderDoctorIncome(data.doctor_income);
       renderServiceIncome(data.service_income);
       renderRoomIncome(data.room_income);
 
@@ -68,16 +67,7 @@ function renderSummary(data) {
   });
 }
 
-function renderDoctorIncome(data) {
-  const ul = document.getElementById("doctor-income-list");
-  ul.innerHTML = "";
-  (data || []).forEach(d => {
-    const li = document.createElement("li");
-    li.className = "list-group-item d-flex justify-content-between";
-    li.innerHTML = `<strong>${d.doctor__name || "—"}</strong> <span>${formatNumber(d.total)}</span>`;
-    ul.appendChild(li);
-  });
-}
+
 
 function renderServiceIncome(data) {
   const ul = document.getElementById("service-income-list");

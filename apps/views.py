@@ -730,20 +730,18 @@ class CashRegistrationView(ListCreateAPIView):
         })
 
     def calculate_patient_balance(self, patient):
-        total_room = self._get_room_charges(patient)
+        # If the patient has a doctor, return only the consultation price
+        if patient.patients_doctor:
+            consultation_price = patient.patients_doctor.consultation_price or Decimal('0.00')
+            return consultation_price
 
-        # 🧠 New logic: if patient has a service from their doctor → use service price only
+        # Else if they have a specific service (like lab, ultrasound)
         latest_service = patient.services.last()
         if latest_service:
-            return total_room + latest_service.price
+            return latest_service.price
 
-        # Else fallback to consultation price if there's a valid appointment
-        latest_appointment = Appointment.objects.filter(patient=patient).order_by('-created_at').first()
-        if latest_appointment and latest_appointment.status != 'cancelled':
-            consultation_price = latest_appointment.doctor.consultation_price or Decimal('0.00')
-            return total_room + consultation_price
-
-        return total_room
+        # Fallback to treatment room charges only
+        return self._get_room_charges(patient)
 
     def _get_room_charges(self, patient):
         active_regs = TreatmentRegistration.objects.filter(
@@ -1432,14 +1430,18 @@ class AccountantDashboardView(APIView):
         # Doctor income (from consultation)
         doctor_income = (
             cash_qs.filter(transaction_type='consultation')
-            .select_related('doctor__user')  # Ensure doctor and user are fetched
-            .values('doctor__user__first_name', 'doctor__user__last_name')
+            .select_related('doctor__user')
+            .values('doctor__id', 'doctor__user__first_name', 'doctor__user__last_name')
             .annotate(total=Sum('amount'))
         )
-        # Format doctor names
+
         doctor_income_formatted = [
             {
-                "doctor__name": f"{item['doctor__user__first_name']} {item['doctor__user__last_name']}" if item['doctor__user__first_name'] else "Unknown",
+                "doctor": {
+                    "id": item['doctor__id'],
+                    "first_name": item['doctor__user__first_name'],
+                    "last_name": item['doctor__user__last_name'],
+                },
                 "total": float(item['total'])
             }
             for item in doctor_income

@@ -52,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <input class="form-check-input service-checkbox" type="checkbox" 
                id="service-${service.id}" value="${service.price}" data-id="${service.id}">
         <label class="form-check-label" for="service-${service.id}">
-          ${service.name} ($${service.price})
+          ${service.name} (${service.price} so'm )
         </label>
       `;
       serviceContainer.appendChild(div);
