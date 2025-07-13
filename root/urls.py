@@ -21,7 +21,8 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     path('', IndexView.as_view(), name='index'),
-    path('admin-dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),    path('archive/', ArchiveView.as_view(), name='archive'),
+    path('admin-dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),
+    path('archive/', ArchiveView.as_view(), name='archive'),
     path('cash-register/', CashRegisterView.as_view(), name='cash-register'),
     path('doctor/', DoctorView.as_view(), name='doctor'),
     path('doctor-add/', DoctorAddView.as_view(), name='doctor-add'),

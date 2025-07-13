@@ -29,7 +29,7 @@
     <li class="nav-item mt-2"><hr class="text-secondary"></li>
     <li class="nav-item"><a href="/cash-register" class="nav-link text-white">💰 Kassa</a></li>
     <li class="nav-item"><a href="/price-management" class="nav-link text-white">🧾 Narx Boshqaruvi</a></li>
-    <li class="nav-item"><a href="/accounting-dashboard" class="nav-link text-white"> Xisobchi (Bugalter)</a></li>
+    <li class="nav-item"><a href="/accounting-dashboard" class="nav-link text-white">📒 Xisobchi (Bugalter)</a></li>
     <li class="nav-item mt-2"><hr class="text-secondary"></li>
     <li class="nav-item"><a href="/doctor-add" class="nav-link text-white">➕ Shifokor Qo'shish</a></li>
     <li class="nav-item mt-2"><hr class="text-secondary"></li>
@@ -135,74 +135,42 @@
   </div>
 </div>
 
-<!-- Access Check Script -->
+<!-- ✅ Role Check + Dashboard Loader -->
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   const token = localStorage.getItem("token");
 
   if (!token) {
-    window.location.href = "/"; // Redirect to login
+    alert("❌ Tizimga kirmagansiz.");
+    window.location.href = "/";
     return;
   }
 
   fetch("http://localhost:8000/api/v1/profile/", {
     headers: {
-      "Authorization": "Bearer " + token,
-      "Content-Type": "application/json",
-    },
-  })
-  .then((res) => {
-    if (!res.ok) {
-      throw new Error("Unauthorized");
+      "Authorization": "Bearer " + token
     }
-    return res.json();
   })
-  .then((data) => {
-    if (!data.is_superuser) {
-      alert("❌ Sizda admin panelga kirish huquqi yo‘q.");
+    .then(res => {
+      if (!res.ok) throw new Error("Unauthorized");
+      return res.json();
+    })
+    .then(data => {
+      if (!data.is_superuser) {
+        alert("❌ Sizda admin panelga kirish huquqi yo‘q.");
+        window.location.href = "/";
+      }
+    })
+    .catch(err => {
+      console.error("Profil xatosi:", err);
+      alert("❌ Kirishda xatolik. Qayta urinib ko‘ring.");
       window.location.href = "/";
-    }
-  })
-  .catch((error) => {
-    alert("❌ Avtorizatsiyada xatolik.");
-    window.location.href = "/";
-  });
+    });
 });
 </script>
 
-<!-- Main Dashboard Logic -->
-<script src="../static/js/admin-dashboard.js"></script>
+<!-- ✅ Correct JS Path -->
+<script src="/static/js/admin-dashboard.js"></script>
 
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      alert("❌ Siz tizimga kirmagansiz. Iltimos, avval login qiling.");
-      window.location.href = "/";  // Redirect to login
-      return;
-    }
-
-    fetch("http://localhost:8000/api/v1/profile/", {
-      headers: {
-        Authorization: "Bearer " + token,
-      },
-    })
-      .then(res => {
-        if (!res.ok) throw new Error("Unauthorized");
-        return res.json();
-      })
-      .then(data => {
-        if (!data.is_superuser) {
-          alert("❌ Sizda admin panelga kirish huquqi yo‘q.");
-          window.location.href = "/";
-        }
-      })
-      .catch(err => {
-        console.error(err);
-        alert("❌ Kirishda xatolik yuz berdi. Qayta urinib ko‘ring.");
-        window.location.href = "/";
-      });
-  });
-</script>
 </body>
 </html>
