@@ -27,8 +27,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const editId = form.dataset.editId;
     const url = editId
-      ? `http://localhost:8000/api/v1/treatment-rooms/${editId}/`
-      : "http://localhost:8000/api/v1/treatment-rooms/";
+      ? `http://89.39.95.150/api/v1/treatment-rooms/${editId}/`
+      : "http://89.39.95.150/api/v1/treatment-rooms/";
 
     const method = editId ? "PUT" : "POST";
 
@@ -58,7 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   function loadRooms() {
-    fetch("http://localhost:8000/api/v1/treatment-rooms/", {
+    fetch("http://89.39.95.150/api/v1/treatment-rooms/", {
       headers: { Authorization: `Bearer ${token}` }
     })
     .then(res => res.json())
@@ -72,8 +72,8 @@ document.addEventListener("DOMContentLoaded", () => {
         card.style.width = "200px";
         card.innerHTML = `
           <h5>${room.name}</h5>
-          <p>Capacity: ${room.capacity}</p>
-          <p>Price/Day: ${room.price_per_day} UZS</p>
+          <p>Soni: ${room.capacity}</p>
+          <p>Kunlik Tulov: ${room.price_per_day} UZS</p>
           <div class="d-flex justify-content-between mt-2">
             <button class="btn btn-sm btn-warning edit-btn">Edit</button>
             <button class="btn btn-sm btn-danger delete-btn">Delete</button>
@@ -94,7 +94,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Delete button handler
         card.querySelector(".delete-btn").addEventListener("click", () => {
           if (confirm("Are you sure you want to delete this room?")) {
-            fetch(`http://localhost:8000/api/v1/treatment-rooms/${room.id}/`, {
+            fetch(`http://89.39.95.150/api/v1/treatment-rooms/${room.id}/`, {
               method: "DELETE",
               headers: { Authorization: `Bearer ${token}` }
             })

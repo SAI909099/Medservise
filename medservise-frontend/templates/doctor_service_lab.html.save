@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <title>Shifokor xizmat sahifasi</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="p-4">
+  <div class="container">
+    <h2>🧑‍⚕️ Shifokor xizmat sahifasi</h2>
+
+    <table class="table table-bordered mt-3" id="lab-table">
+      <thead>
+        <tr>
+          <th>F.I.Sh.</th>
+          <th>Xizmat</th>
+          <th>Izoh</th>
+          <th>Holat</th>
+          <th>Yuborilgan</th>
+        </tr>
+      </thead>
+      <tbody id="lab-table-body"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const doctorId = window.location.pathname.split("/").filter(Boolean).pop();
+
+    fetch(`/api/v1/public/services/doctor/${doctorId}/`)
+      .then(res => res.json())
+      .then(data => {
+        const tbody = document.getElementById("lab-table-body");
+        data.forEach(reg => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${reg.patient.full_name}</td>
+            <td>${reg.service.name}</td>
+            <td>${reg.notes || "-"}</td>
+            <td>${reg.status}</td>
+            <td>${new Date(reg.created_at).toLocaleString()}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      });
+  </script>
+</body>
+</html>

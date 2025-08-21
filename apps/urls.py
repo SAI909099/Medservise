@@ -12,7 +12,7 @@ from apps.views import (
     PatientRegistrationAPIView, PatientDetailAPIView, PatientListAPIView, RecentPatientsView, RecentPatientsByDaysView,
 
     # Doctors
-    DoctorListCreateAPIView, DoctorRegistrationAPIView, CreateDoctorWithUserView, DoctorDetailView,
+    DoctorListCreateAPIView, DoctorRegistrationAPIView, DoctorDetailView,
 
     # Appointments
     AppointmentListCreateAPIView, DoctorAppointmentListAPIView, DoctorAppointmentDetailAPIView,
@@ -39,7 +39,8 @@ from apps.views import (
     TreatmentDischargeView, TreatmentMoveView, DoctorPatientRoomView, GenerateTurnView, CallPatientView,
     CurrentCallsView, PrintTurnView, ClearCallView, AdminStatisticsView, RecentTransactionsView, AdminChartDataView,
     TreatmentPaymentReceiptView, PrintTreatmentReceiptView, PrintTreatmentRoomReceiptView, TreatmentRoomStatsView,
-    AccountantDashboardView, OutcomeListCreateView, UserProfileAPIView
+    AccountantDashboardView, OutcomeListCreateView, UserProfileAPIView , UserProfileAPIView,     LabRegistrationListCreateAPIView,
+    LabRegistrationDetailAPIView , PublicDoctorServiceAPI , PatientArchiveView, RoomHistoryView
 )
 
 urlpatterns = [
@@ -64,7 +65,6 @@ urlpatterns = [
     path('doctor-list/', DoctorListCreateAPIView.as_view(), name='doctor-list'),
     path('doctor-list/<int:pk>/', DoctorDetailView.as_view(), name='doctor-detail'),
     path('doctor-register/', DoctorRegistrationAPIView.as_view(), name='doctor-register'),
-    path('create-doctor/', CreateDoctorWithUserView.as_view(), name='create-doctor'),
 
     # --- Appointments ---
     path('appointment/', AppointmentListCreateAPIView.as_view(), name='appointment'),
@@ -137,11 +137,17 @@ urlpatterns = [
     path("doctor-income/", AccountantDashboardView.as_view(), name="doctor-income"),  # alias
     path("accountant/outcomes/", OutcomeListCreateView.as_view(), name="outcome-list-create"),
 
+
+    path('user-profile/', UserProfileAPIView.as_view(), name='user-profile'),
+    path("receipt-details/<int:id>/", TreatmentPaymentReceiptView.as_view()),
     path("profile/", UserProfileAPIView.as_view(), name="profile"),
 
+    path('lab-registrations/', LabRegistrationListCreateAPIView.as_view(), name='lab-registration-list-create'),
+    path('lab-registrations/<int:pk>/', LabRegistrationDetailAPIView.as_view(), name='lab-registration-detail'),
+    path("services/doctor/<int:doctor_id>/", PublicDoctorServiceAPI.as_view(), name="public-doctor-service-api"),
 
+    path('patients/archive/', PatientArchiveView.as_view(), name='patient-archive'),
+    path('room-history/', RoomHistoryView.as_view(), name='room-history'),
 
 
 ]
-
-

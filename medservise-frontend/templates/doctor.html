@@ -1,10 +1,16 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="uz">
 <head>
   <meta charset="UTF-8">
   <title>Shifokor Paneli</title>
+
+  <!-- Bootstrap CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="../static/js/doctor.js" defer></script>
+
+  <!-- JavaScript -->
+  <script src="{% static 'js/doctor.js' %}" defer></script>
+
   <style>
     body {
       display: flex;
@@ -60,7 +66,7 @@
 </head>
 <body class="bg-light">
 
-<!-- Yon panel -->
+<!-- Sidebar -->
 <div class="sidebar">
   <h5 class="text-center">🩺 Medservise</h5>
   <a href="/doctor">📋 Bosh sahifa</a>
@@ -68,10 +74,11 @@
   <a href="/" onclick="logout()">🚪 Chiqish</a>
 </div>
 
-<!-- Asosiy kontent -->
+<!-- Main Content -->
 <div class="main-content container">
   <h2 class="mb-4">👨‍⚕️ Xush kelibsiz, Shifokor!</h2>
 
+  <!-- Filters -->
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap filters">
     <div class="d-flex flex-wrap gap-2">
       <button id="filter-today-btn" class="btn btn-primary">📅 Bugungi qabul</button>
@@ -79,9 +86,9 @@
       <input type="text" id="search-name" class="form-control" placeholder="🔍 Bemor ismi bo'yicha qidirish">
       <button id="apply-filters-btn" class="btn btn-outline-secondary">🔎 Qidirish</button>
     </div>
-    <button class="btn btn-danger" onclick="logout()">🚪 Chiqish</button>
   </div>
 
+  <!-- Appointments Table -->
   <table class="table table-bordered table-striped" id="appointments-table">
     <thead class="table-light">
       <tr>
@@ -97,5 +104,4 @@
 </div>
 
 </body>
-
 </html>

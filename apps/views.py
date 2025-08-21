@@ -1,40 +1,88 @@
 import random
 import string
-from decimal import Decimal
 import json
+from decimal import Decimal
+from escpos.printer import Win32Raw
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
-from django.db.models import DecimalField, ExpressionWrapper, F
-from django.db.models.functions import Coalesce
-from django.db.models.functions import ExtractDay, Now
+from django.db.models import (
+    DecimalField,
+    ExpressionWrapper,
+    F,
+)
+from django.db.models.functions import (
+    Coalesce,
+    ExtractDay,
+    Now,
+)
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.http import urlsafe_base64_decode
 from django.utils.timezone import localtime
+
 from drf_spectacular.utils import extend_schema
 from escpos.printer import Usb
-from rest_framework import generics
-from rest_framework import status
+
+from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import AuthenticationFailed
-from rest_framework.generics import GenericAPIView, ListCreateAPIView, RetrieveUpdateDestroyAPIView, RetrieveAPIView, \
-    ListAPIView
+from rest_framework.generics import (
+    GenericAPIView,
+    ListCreateAPIView,
+    RetrieveUpdateDestroyAPIView,
+    RetrieveAPIView,
+    ListAPIView,
+)
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.status import HTTP_201_CREATED
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.models import User, Doctor, Patient, Appointment, Payment, TreatmentRoom, \
-    TreatmentRegistration, PatientResult, Service, TreatmentPayment, CashRegister, TurnNumber, CurrentCall
-from apps.serializers import ForgotPasswordSerializer, PasswordResetConfirmSerializer, RegisterSerializer, \
-    LoginSerializer, LoginUserModelSerializer, UserInfoSerializer, DoctorSerializer, \
-    PatientSerializer, AppointmentSerializer, PaymentSerializer, TreatmentRoomSerializer, \
-    TreatmentRegistrationSerializer, PatientResultSerializer, ServiceSerializer, DoctorCreateSerializer, \
-    DoctorUserCreateSerializer, DoctorDetailSerializer, TreatmentPaymentSerializer, DoctorPaymentSerializer, \
-    CashRegisterSerializer, CallTurnSerializer
+from apps.models import (
+    User,
+    Doctor,
+    Patient,
+    Appointment,
+    Payment,
+    TreatmentRoom,
+    TreatmentRegistration,
+    PatientResult,
+    Service,
+    TreatmentPayment,
+    CashRegister,
+    TurnNumber,
+    CurrentCall,
+)
+from apps.serializers import (
+    ForgotPasswordSerializer,
+    PasswordResetConfirmSerializer,
+    RegisterSerializer,
+    LoginSerializer,
+    LoginUserModelSerializer,
+    UserInfoSerializer,
+    DoctorSerializer,
+    PatientSerializer,
+    AppointmentSerializer,
+    PaymentSerializer,
+    TreatmentRoomSerializer,
+    TreatmentRegistrationSerializer,
+    PatientResultSerializer,
+    ServiceSerializer,
+    DoctorCreateSerializer,
+    DoctorUserCreateSerializer,
+    DoctorDetailSerializer,
+    TreatmentPaymentSerializer,
+    DoctorPaymentSerializer,
+    CashRegisterSerializer,
+    CallTurnSerializer,
+)
 from apps.tasks import send_verification_email
 from utils.receipt_printer import ReceiptPrinter
+
 from .models import Outcome
 from .serializers import OutcomeSerializer
+from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
+from .models import LabRegistration
+from .serializers import LabRegistrationSerializer
 
 
 # ------------------------------------Register ------------------------------------------
@@ -257,6 +305,7 @@ class PatientRegistrationAPIView(APIView):
             return Response(patient_serializer.errors, status=400)
 
 
+
 @extend_schema(tags=['Doctor'])
 class DoctorListCreateAPIView(ListCreateAPIView):
     queryset = Doctor.objects.all()
@@ -456,21 +505,20 @@ class DoctorRegistrationAPIView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        serializer = DoctorCreateSerializer(data=request.data)  # ✅ USE THIS INSTEAD
+        data = request.data.copy()
+        role = data.get("role")
+
+        # Ensure all roles are mutually exclusive
+        data["is_doctor"] = role == "doctor"
+        data["is_cashier"] = role == "cashier"
+        data["is_accountant"] = role == "accountant"
+        data["is_registrator"] = role == "registration"
+        data["is_superuser"] = role == "admin"
+
+        serializer = DoctorCreateSerializer(data=data)
         if serializer.is_valid():
-            doctor = serializer.save()
-            return Response({"message": "Doctor registered successfully."}, status=201)
-        return Response(serializer.errors, status=400)
-
-
-class CreateDoctorWithUserView(APIView):
-    permission_classes = [IsAuthenticated]  # Optional: or AllowAny
-
-    def post(self, request):
-        serializer = DoctorUserCreateSerializer(data=request.data)
-        if serializer.is_valid():
-            doctor = serializer.save()
-            return Response({"message": "Doctor created successfully."})
+            serializer.save()
+            return Response({"message": "Foydalanuvchi muvaffaqiyatli ro'yxatdan o'tkazildi."}, status=201)
         return Response(serializer.errors, status=400)
 
 
@@ -1066,13 +1114,13 @@ class PrintTurnView(APIView):
         patient_name = request.data.get("patient_name")
         doctor_name = request.data.get("doctor_name")
         turn_number = request.data.get("turn_number")
+        patient_id = request.data.get("patient_id")  # 👈 You need to send this from frontend
 
-        if not all([patient_name, doctor_name, turn_number]):
+        if not all([patient_name, doctor_name, turn_number, patient_id]):
             return Response({"error": "Missing fields"}, status=400)
 
         try:
-            # USB printer: adjust vendor/product ID from lsusb
-            p = Usb(0x0483, 0x070b)
+            p = Win32Raw("ReceiptPrinter")  # 👈 Must match Windows printer name
 
             # Header
             p.set(align='center', bold=True, width=2, height=2)
@@ -1086,23 +1134,23 @@ class PrintTurnView(APIView):
             p.text(f"Sana: {timezone.now().strftime('%Y-%m-%d %H:%M')}\n")
             p.text("--------------------------------\n")
 
-            # Footer & Large Turn Number
+            # Footer
             p.set(align='center', bold=True)
             p.text("Iltimos navbatni kuting\n\n")
 
             p.set(width=8, height=8, bold=True)
             p.text(f"{turn_number}\n\n")
 
-            location_url = f"https://maps.app.goo.gl/DmZwhdmt3h3PoADs9"
+            # New QR code pointing to patient detail page
+            location_url = f"http://yourdomain.com/patient/detail/{patient_id}/"
             p.qr(location_url, size=10)
-            p.set(align='center', bold=True)
-            p.text(" Bizning manzilimiz  ")
-
+            p.text(" Bemor haqida ma'lumot \n")
             p.cut()
 
             return Response({"message": "Printed ✅"})
         except Exception as e:
             return Response({"error": str(e)}, status=500)
+
 
 class ClearCallView(APIView):
     permission_classes = [IsAuthenticated]
@@ -1246,148 +1294,156 @@ class AdminChartDataView(APIView):
 
         return Response(data)
 
+
+# apps/views.py
+import logging
+from django.utils.timezone import now
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+from apps.models import TreatmentPayment, TreatmentRegistration
+
+logger = logging.getLogger(__name__)
+
 class TreatmentPaymentReceiptView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, id):
-        payment = get_object_or_404(TreatmentPayment, id=id)
-        patient = payment.patient
-        user = payment.created_by
-
-        # 🔍 Find the active treatment registration
+        logger.info(f"Fetching payment with id={id} for user={request.user.id}")
         try:
-            registration = TreatmentRegistration.objects.filter(
-                patient=patient, discharged_at__isnull=True
-            ).latest("assigned_at")  # Or use .first() if unsure about latest
-            doctor = registration.appointment.doctor if registration.appointment else None
-        except TreatmentRegistration.DoesNotExist:
-            registration = None
-            doctor = None
+            # Use _default_manager to bypass custom managers
+            payment = get_object_or_404(TreatmentPayment._default_manager, id=id)
+            patient = payment.patient
+            user = payment.created_by
+            logger.info(f"Payment found: id={payment.id}, patient={patient.id}, created_by={user.id if user else None}")
 
-        return Response({
-            "id": payment.id,
-            "date": payment.date,
-            "amount": float(payment.amount),
-            "payment_method": payment.payment_method,
-            "status": payment.status,
-            "notes": payment.notes,
-            "patient_name": f"{patient.first_name} {patient.last_name}" if patient else "—",
-            "processed_by": user.get_full_name() if user else "—",
-            "doctor_name": doctor.get_full_name() if doctor else "—",
-        }, status=status.HTTP_200_OK)
+            try:
+                registration = TreatmentRegistration.objects.filter(
+                    patient=patient, discharged_at__isnull=True
+                ).latest("assigned_at")
+                doctor = registration.appointment.doctor if registration.appointment else None
+                logger.info(f"Registration found: doctor={doctor.id if doctor else None}")
+            except TreatmentRegistration.DoesNotExist:
+                logger.info(f"No active registration for patient={patient.id}")
+                doctor = None
+            except Exception as e:
+                logger.error(f"Error fetching registration for payment_id={id}: {str(e)}")
+                doctor = None
 
-class PrintTreatmentReceiptView(APIView):
+            type_map = {
+                'consultation': 'Konsultatsiya',
+                'treatment': 'Davolash',
+                'service': 'Xizmat',
+                'room': 'Xona',
+                'other': 'Boshqa'
+            }
+
+            method_map = {
+                'cash': 'Naqd',
+                'card': 'Karta',
+                'insurance': 'Sug‘urta',
+                'transfer': 'Bank'
+            }
+
+            return Response({
+                "id": payment.id,
+                "receipt_number": f"TP-{payment.id}",
+                "date": payment.date.strftime("%Y-%m-%d %H:%M:%S") if payment.date else now().strftime("%Y-%m-%d %H:%M:%S"),
+                "amount": float(payment.amount) if payment.amount else 0.0,
+                "payment_method": method_map.get(payment.payment_method, payment.payment_method or "unknown"),
+                "status": payment.status or "unknown",
+                "notes": payment.notes or "",
+                "patient_name": f"{patient.first_name} {patient.last_name}".strip() if patient else "Unknown",
+                "doctor_name": f"{doctor.first_name} {doctor.last_name}".strip() if doctor else "—",
+                "processed_by": user.get_full_name() if user else "Unknown",
+                "transaction_type": type_map.get(payment.transaction_type, payment.transaction_type or "treatment")
+            }, status=status.HTTP_200_OK)
+        except TreatmentPayment.DoesNotExist:
+            logger.error(f"TreatmentPayment with id={id} not found")
+            return Response({"error": "To‘lov topilmadi"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.exception(f"Unexpected error in TreatmentPaymentReceiptView for payment_id={id}: {str(e)}")
+            return Response({"error": f"Server xatosi: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+# apps/views.py
+import json
+import logging
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+from apps.models import TreatmentPayment, TreatmentRegistration
+from escpos.printer import Usb
+
+logger = logging.getLogger(__name__)
+
+class PrintTreatmentRoomReceiptView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         payment_id = request.data.get("payment_id")
         if not payment_id:
-            return Response({"error": "Missing payment_id"}, status=400)
+            return Response({"error": "payment_id kiritilmadi"}, status=400)
 
         try:
-            payment = TreatmentPayment.objects.select_related("patient", "created_by").get(id=payment_id)
+            payment = get_object_or_404(TreatmentPayment, id=payment_id)
         except TreatmentPayment.DoesNotExist:
+            logger.error(f"TreatmentPayment with id={payment_id} not found")
             return Response({"error": "To‘lov topilmadi"}, status=404)
-
-        patient = payment.patient
-        user = payment.created_by
 
         try:
             registration = TreatmentRegistration.objects.filter(
-                patient=patient, discharged_at__isnull=True
+                patient=payment.patient, discharged_at__isnull=True
             ).latest("assigned_at")
             doctor = registration.appointment.doctor if registration.appointment else None
         except TreatmentRegistration.DoesNotExist:
+            doctor = None
+        except Exception as e:
+            logger.error(f"Error fetching registration for payment_id={payment_id}: {str(e)}")
             doctor = None
 
         try:
             p = Usb(0x0483, 0x070b)
             p.set(align='center', text_type='B', width=2, height=2)
-            p.text("🏥 Medservise Klinikasi\n\n")
-            p.set(align='left')
-            p.text(f"F.I.O.: {patient.first_name} {patient.last_name}\n")
-            p.text(f"Miqdor: {payment.amount} so'm\n")
-            p.text(f"To‘lov turi: {payment.payment_method}\n")
-            p.text(f"Holat: {payment.status}\n")
-            p.text(f"Shifokor: {doctor.get_full_name() if doctor else '-'}\n")
-            p.text(f"Izoh: {payment.notes or '—'}\n")
-            p.text(f"Sana: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
+            p.text("🏥 NEURO PULS KLINIKASI\n\n")
 
-            # ✅ Add QR Code
-            qr_data = json.dumps({
-                "name": f"{patient.first_name} {patient.last_name}",
-                "amount": str(payment.amount),
-                "payment_method": payment.payment_method,
-                "doctor": doctor.get_full_name() if doctor else "-",
-                "status": payment.status,
-                "note": payment.notes or "",
-                "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            }, ensure_ascii=False)
+            p.set(align='left', text_type='B', width=1, height=1)
+            p.text(f"Chek raqami: TP-{payment.id}\n")
+            p.text(f"Sana      : {payment.date.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            p.text(f"Bemor     : {payment.patient.first_name} {payment.patient.last_name}\n")
+            p.text(f"Turi      : {payment.transaction_type or 'Davolash'}\n")
+            p.text(f"Miqdor    : {float(payment.amount):.0f}.00 so'm\n")
+            p.text(f"Usul      : {payment.payment_method or 'N/A'}\n")
+            p.text(f"Qabulchi  : {payment.created_by.get_full_name() if payment.created_by else 'N/A'}\n")
+            if payment.notes:
+                p.text(f"Izoh      : {payment.notes}\n")
+            p.text("-----------------------------")
+            p.text("Rahmat! Kuningiz yaxshi o‘tsin!\n")
 
-            p.text("\n")
-            p.qr(qr_data, size=6)
-            p.text("\n✅ Rahmat!\n\n")
-            p.cut()
-
-            return Response({"success": True}, status=200)
-        except Exception as e:
-            return Response({"error": str(e)}, status=500)
-
-
-
-
-
-from datetime import datetime
-
-import logging
-logger = logging.getLogger(__name__)
-
-class PrintTreatmentRoomReceiptView(APIView):
-    def post(self, request):
-        payment_id = request.data.get("payment_id")
-        if not payment_id:
-            return Response({"error": "Missing payment_id"}, status=400)
-
-        try:
-            payment = TreatmentPayment.objects.select_related("patient", "created_by").get(id=payment_id)
-        except TreatmentPayment.DoesNotExist:
-            return Response({"error": "To‘lov topilmadi"}, status=404)
-
-        try:
-            p = Usb(0x0483, 0x070b)
-            p.set(align='center', font='b', width=2, height=2)
-            p.text("Neuro Puls\n\n")
-            p.set(align='left')
-            p.text(f"F.I.O.: {payment.patient.first_name} {payment.patient.last_name}\n")
-            p.text(f"Miqdor: {payment.amount} so'm\n")
-            p.text(f"To‘lov turi: {payment.payment_method}\n")
-            p.text(f"Holat: {payment.status}\n")
-            p.text(f"Shifokor: {payment.created_by.get_full_name() if payment.created_by else '-'}\n")
-            p.text(f"Izoh: {payment.notes or '—'}\n")
-            p.text(f"Sana: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
-
-            # ✅ QR Code generation
             qr_data = json.dumps({
                 "name": f"{payment.patient.first_name} {payment.patient.last_name}",
                 "amount": str(payment.amount),
                 "payment_method": payment.payment_method,
                 "status": payment.status,
+                "doctor": doctor.get_full_name() if doctor else "-",
                 "note": payment.notes or "",
-                "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                "date": payment.date.strftime('%Y-%m-%d %H:%M:%S')
             }, ensure_ascii=False)
 
-            p.text("\n")
+            p.text("\n\n")
             p.qr(qr_data, size=6)
-            p.text("\n Rahmat!\n\n")
+            p.text("\n\n\n")
             p.cut()
 
             return Response({"success": True}, status=200)
         except Exception as e:
-            logger.exception("❌ USB printerda xatolik!")
+            logger.exception(f"❌ USB printerda xatolik for payment_id={payment_id}: {str(e)}")
             return Response({"error": str(e)}, status=500)
-
-
-
 
 class TreatmentRoomStatsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -1526,7 +1582,7 @@ class UserProfileAPIView(APIView):
             "id": user.id,
             "email": user.email,
             "is_superuser": user.is_superuser,
-            "role": user.role if hasattr(user, "role") else None,
+            "role": getattr(user, "role", None),
         })
 
 
@@ -1542,3 +1598,93 @@ class UserProfileAPIView(APIView):
 #         "is_staff": user.is_staff,
 #         "full_name": user.get_full_name() if hasattr(user, "get_full_name") else "",
 #     })
+
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from .serializers import UserProfileSerializer , PatientArchiveSerializer
+
+class UserProfileAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = UserProfileSerializer(request.user)
+        return Response(serializer.data)
+
+class PrintTreatmentReceiptView(APIView):
+    def get(self, request, *args, **kwargs):
+        return Response({"message": "Receipt printed"})
+
+class LabRegistrationListCreateAPIView(ListCreateAPIView):
+    queryset = LabRegistration.objects.select_related('patient', 'service', 'visit').all().order_by('-created_at')
+    serializer_class = LabRegistrationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        patient_id = self.request.query_params.get('patient')
+        if patient_id:
+            return self.queryset.filter(patient_id=patient_id)
+        return self.queryset
+
+
+class LabRegistrationDetailAPIView(RetrieveUpdateDestroyAPIView):
+    queryset = LabRegistration.objects.all()
+    serializer_class = LabRegistrationSerializer
+    permission_classes = [IsAuthenticated]
+
+class PublicDoctorServiceAPI(APIView):
+    permission_classes = []  # NO authentication
+
+    def get(self, request, doctor_id):
+        lab_regs = LabRegistration.objects.filter(service__doctor_id=doctor_id).select_related('patient', 'visit', 'service')
+        serializer = LabRegistrationSerializer(lab_regs, many=True)
+        return Response(serializer.data)
+
+
+class PatientArchiveView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        patients = Patient.objects.select_related('patients_doctor__user').prefetch_related(
+            'appointment_set', 'treatmentregistration_set__room', 'labregistration_set__service'
+        ).all().order_by('-created_at')
+        serializer = PatientArchiveSerializer(patients, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class LabRegistrationListCreateAPIView(ListCreateAPIView):
+    queryset = LabRegistration.objects.select_related('patient', 'service', 'visit').all().order_by('-created_at')
+    serializer_class = LabRegistrationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        patient_id = self.request.query_params.get('patient')
+        if patient_id:
+            return self.queryset.filter(patient_id=patient_id)
+        return self.queryset
+
+    def perform_create(self, serializer):
+        try:
+            request_data = self.request.data
+            logger.info(f"Attempting to create LabRegistration with data: {request_data}")
+            instance = serializer.save(created_by=self.request.user)
+            logger.info(f"Lab registration created: patient={instance.patient.id}, visit={instance.visit.id}, service={instance.service.id}")
+            return Response(serializer.data, status=HTTP_201_CREATED)
+        except ValidationError as ve:
+            logger.error(f"Validation error: {str(ve.detail if hasattr(ve, 'detail') else str(ve))}")
+            return Response({"error": str(ve.detail if hasattr(ve, 'detail') else str(ve))}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Error creating LabRegistration: {str(e)}", exc_info=True)
+            return Response({"error": "An unexpected error occurred while creating the lab registration"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+from .serializers import RoomHistorySerializer
+
+class RoomHistoryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        registrations = TreatmentRegistration.objects.select_related('room').all()
+        serializer = RoomHistorySerializer(registrations, many=True)
+        return Response(serializer.data)

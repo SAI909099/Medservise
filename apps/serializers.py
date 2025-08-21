@@ -1,6 +1,7 @@
-from datetime import timedelta
+from datetime import timedelta 
 from urllib.parse import urlparse
 
+from django.db import models
 import redis
 from django.contrib.auth import authenticate
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
@@ -15,7 +16,8 @@ from rest_framework.serializers import ModelSerializer
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from root import settings
-from .models import User, Doctor, Patient, PatientResult, Service, TreatmentPayment, CashRegister, TurnNumber, Outcome
+from .models import User, Doctor, Patient, PatientResult, Service, TreatmentPayment, CashRegister, TurnNumber, Outcome, TreatmentRegistration
+
 
 redis_url = urlparse(settings.CELERY_BROKER_URL)
 
@@ -185,35 +187,74 @@ from .models import Patient, Doctor, Appointment, Payment, TreatmentRoom, Treatm
 class DoctorCreateSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(write_only=True)
     password = serializers.CharField(write_only=True)
-    consultation_price = serializers.DecimalField(max_digits=10, decimal_places=2)
-
+    consultation_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
     first_name = serializers.CharField(write_only=True)
     last_name = serializers.CharField(write_only=True)
+    role = serializers.ChoiceField(
+        choices=[
+            ('doctor', 'Shifokor'),
+            ('cashier', 'Kassir'),
+            ('accountant', 'Buxgalter'),
+            ('registration', 'Registrator'),
+            ('admin', 'Admin'),
+        ],
+        write_only=True
+    )
+
+    name = serializers.CharField(required=False)
+    specialty = serializers.CharField(required=False)
 
     class Meta:
         model = Doctor
         fields = [
             'id', 'name', 'specialty', 'consultation_price',
-            'email', 'password', 'first_name', 'last_name'
+            'email', 'password', 'first_name', 'last_name', 'role'
         ]
 
     def create(self, validated_data):
+        role = validated_data.pop("role")
         email = validated_data.pop("email")
         password = validated_data.pop("password")
         first_name = validated_data.pop("first_name")
         last_name = validated_data.pop("last_name")
 
+        is_doctor = role == "doctor"
+        is_cashier = role == "cashier"
+        is_accountant = role == "accountant"
+        is_registrator = role == "registration"
+        is_superuser = role == "admin"
+        is_staff = is_superuser or is_cashier or is_accountant or is_registrator
+
+        # ✅ Create user
         user = User.objects.create_user(
             email=email,
             password=password,
-            is_doctor=True,
-            is_active=True,
             first_name=first_name,
             last_name=last_name,
+            is_active=True,
+            is_doctor=is_doctor,
+            is_cashier=is_cashier,
+            is_accountant=is_accountant,
+            is_registrator=is_registrator,
+            is_superuser=is_superuser,
+            is_staff=is_staff,
         )
 
-        doctor = Doctor.objects.create(user=user, **validated_data)
-        return doctor
+        # ✅ If doctor, ensure name + specialty exist
+        if is_doctor:
+            name = validated_data.get("name") or f"{first_name} {last_name}"
+            specialty = validated_data.get("specialty")
+
+            if not specialty:
+                raise serializers.ValidationError({
+                    "specialty": ["This field is required for doctors."]
+                })
+
+            validated_data["name"] = name
+            return Doctor.objects.create(user=user, **validated_data)
+
+        return user
+
 
 
 class DoctorSerializer(serializers.ModelSerializer):
@@ -342,42 +383,52 @@ class DoctorUserCreateSerializer(serializers.Serializer):
     date_of_birth = serializers.DateField()
     phone_number = serializers.CharField()
     specialty = serializers.CharField()
+    role = serializers.ChoiceField(
+        choices=[
+            ("doctor", "Doctor"),
+            ("cashier", "Cashier"),
+            ("accountant", "Accountant"),
+            ("registration", "Registration"),
+            ("admin", "Admin"),
+        ]
+    )
 
     def create(self, validated_data):
-        # Extract user fields
+        role = validated_data.pop("role")
+
+        is_doctor = role == "doctor"
+        is_cashier = role == "cashier"
+        is_accountant = role == "accountant"
+        is_registrator = role == "registration"
+        is_superuser = role == "admin"
+        is_staff = is_superuser or is_cashier or is_accountant or is_registrator
+
+        # Create User
         user = User.objects.create_user(
-            first_name=validated_data["first_name"],
-            last_name=validated_data["last_name"],
             email=validated_data["email"],
             password=validated_data["password"],
+            first_name=validated_data["first_name"],
+            last_name=validated_data["last_name"],
             date_of_birth=validated_data["date_of_birth"],
             phone_number=validated_data["phone_number"],
-            is_doctor=True,
-            is_active=True  # Optional: auto-activate
+            is_active=True,
+            is_doctor=is_doctor,
+            is_cashier=is_cashier,
+            is_accountant=is_accountant,
+            is_registrator=is_registrator,
+            is_superuser=is_superuser,
+            is_staff=is_staff,
         )
-        # Create doctor profile
-        doctor = Doctor.objects.create(
-            user=user,
-            name=f"{user.first_name} {user.last_name}",
-            specialty=validated_data["specialty"]
-        )
-        return doctor
 
+        # Create Doctor model only for doctors
+        if is_doctor:
+            return Doctor.objects.create(
+                user=user,
+                name=f"{user.first_name} {user.last_name}",
+                specialty=validated_data["specialty"]
+            )
 
-
-
-    def update(self, instance, validated_data):
-        # Handle nested user data
-        user_data = validated_data.pop('user', {})
-        for attr, value in user_data.items():
-            setattr(instance.user, attr, value)
-        instance.user.save()
-
-        # Update doctor-specific fields
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        return instance
+        return user
 
 
 
@@ -536,3 +587,170 @@ class OutcomeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Outcome
         fields = '__all__'
+
+
+from apps.models import User  # adjust if your model is in a different location
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    role = serializers.SerializerMethodField()
+    is_admin = serializers.SerializerMethodField()
+    full_name = serializers.SerializerMethodField()  # Optional
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'first_name', 'last_name', 'email',
+            'is_superuser', 'is_doctor', 'is_cashier',
+            'is_accountant', 'is_registrator',
+            'role', 'is_admin', 'full_name'  # include full_name if desired
+        ]
+
+    def get_role(self, obj):
+        if obj.is_superuser:
+            return 'admin'
+        elif obj.is_doctor:
+            return 'doctor'
+        elif obj.is_cashier:
+            return 'cashier'
+        elif obj.is_accountant:
+            return 'accountant'
+        elif obj.is_registrator:
+            return 'registration'
+        return 'unknown'
+
+    def get_is_admin(self, obj):
+        return obj.is_superuser
+
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip()
+
+
+
+
+
+class RoomHistorySerializer(serializers.ModelSerializer):
+    room_name = serializers.CharField(source='room.name', read_only=True)  # Derive room_name from room
+
+    class Meta:
+        model = TreatmentRegistration
+        fields = ['id', 'room_name', 'assigned_at', 'discharged_at']
+
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = ['id', 'amount', 'created_at']
+
+from apps.models import Patient, Appointment, TreatmentRegistration, LabRegistration, TreatmentPayment
+
+class PatientArchiveSerializer(serializers.ModelSerializer):
+    appointments = serializers.SerializerMethodField()
+    treatment_history = serializers.SerializerMethodField()
+    total_payments = serializers.SerializerMethodField()
+    lab_services = serializers.SerializerMethodField()
+    doctor = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Patient
+        fields = [
+            'id',
+            'first_name',
+            'last_name',
+            'phone',
+            'created_at',
+            'doctor',
+            'appointments',
+            'treatment_history',
+            'lab_services',
+            'total_payments',
+        ]
+
+    def get_doctor(self, obj):
+        if obj.patients_doctor:
+            return {
+                'id': obj.patients_doctor.id,
+                'first_name': obj.patients_doctor.user.first_name,
+                'last_name': obj.patients_doctor.user.last_name
+            }
+        return None
+
+    def get_appointments(self, obj):
+        appointments = Appointment.objects.filter(patient=obj)
+        return [{
+            'date': appt.created_at.strftime('%Y-%m-%d %H:%M'),
+            'status': appt.status,
+            'doctor': appt.doctor.name if appt.doctor else None,
+        } for appt in appointments]
+
+    def get_treatment_history(self, obj):
+        registrations = TreatmentRegistration.objects.filter(patient=obj).select_related('room')
+        if not registrations.exists():
+            return [{"room": "Noma'lum", "assigned_at": obj.created_at.strftime('%Y-%m-%d %H:%M'), "discharged_at": None, "total_paid": "0"}]
+        return [{
+            'room': reg.room.name if reg.room else "Noma'lum",
+            'assigned_at': reg.assigned_at.strftime('%Y-%m-%d %H:%M') if reg.assigned_at else "N/A",
+            'discharged_at': reg.discharged_at.strftime('%Y-%m-%d %H:%M') if reg.discharged_at else None,
+            'total_paid': str(reg.total_paid or 0),
+        } for reg in registrations]
+
+    def get_lab_services(self, obj):
+        registrations = LabRegistration.objects.filter(patient=obj).select_related('service')
+        return [{
+            'service': lab.service.name,
+            'price': str(lab.service.price),
+            'registered_at': lab.created_at.strftime('%Y-%m-%d %H:%M'),
+            'status': lab.status
+        } for lab in registrations]
+
+    def get_total_payments(self, obj):
+        total = TreatmentPayment.objects.filter(patient=obj).aggregate(total=models.Sum('amount'))['total'] or 0
+        return str(total)
+
+
+class LabRegistrationSerializer(serializers.ModelSerializer):
+    patient_name = serializers.SerializerMethodField()
+    service_name = serializers.ReadOnlyField(source='service.name')
+    doctor_name = serializers.ReadOnlyField(source='service.doctor.name')
+    created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
+    visit_data = serializers.SerializerMethodField(read_only=True)
+    status = serializers.ChoiceField(choices=LabRegistration.STATUS_CHOICES, default="pending")
+
+    class Meta:
+        model = LabRegistration
+        fields = [
+            'id',
+            'patient',
+            'visit',
+            'service',
+            'patient_name',
+            'service_name',
+            'doctor_name',
+            'created_at',
+            'status',
+            'notes',
+            'visit_data'
+        ]
+        read_only_fields = ['created_at', 'patient_name', 'service_name', 'doctor_name', 'visit_data']
+
+    def get_patient_name(self, obj):
+        return f"{obj.patient.first_name} {obj.patient.last_name}"
+
+    def get_visit_data(self, obj):
+        if obj.visit:
+            return {
+                'id': obj.visit.id,
+                'room': obj.visit.room.name if obj.visit.room else None,
+                'assigned_at': obj.visit.assigned_at.strftime('%Y-%m-%d %H:%M') if obj.visit.assigned_at else None
+            }
+        return None
+
+    def validate(self, data):
+        visit_id = data.get('visit')
+        if not visit_id:
+            raise serializers.ValidationError({"visit": "This field is required."})
+        try:
+            TreatmentRegistration.objects.get(id=visit_id)
+        except TreatmentRegistration.DoesNotExist:
+            raise serializers.ValidationError({"visit": "Invalid visit ID."})
+        return data

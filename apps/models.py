@@ -24,7 +24,12 @@ class User(AbstractUser):
     email = EmailField(unique=True)
     is_active = BooleanField(default=False)
     reset_token = CharField(max_length=64, null=True, blank=True)
+
     is_doctor = BooleanField(default=False)
+    is_cashier = BooleanField(default=False)
+    is_accountant = BooleanField(default=False)
+    is_registrator = BooleanField(default=False)
+
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
@@ -258,3 +263,26 @@ class Outcome(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.amount} so'm"
+
+
+
+class LabRegistration(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Kutilmoqda"),
+        ("completed", "Bajarilgan"),
+    ]
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
+    visit = models.ForeignKey(TreatmentRegistration, on_delete=models.CASCADE, null=True, blank=True)
+    service = models.ForeignKey(Service, on_delete=models.CASCADE)
+    notes = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Visit(models.Model):
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='visits')
+    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='visits')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Visit: {self.patient} to {self.doctor} on {self.created_at}"

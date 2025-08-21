@@ -8,36 +8,36 @@
 </head>
 <body class="p-4 bg-light">
 <div class="container">
-  <h2 class="mb-4">➕ Add Treatment Room</h2>
+  <h2 class="mb-4">➕ Yotoqxona Qo`shish</h2>
 
   <form id="room-form" class="mb-4 row g-3">
     <div class="col-md-4">
-      <input type="text" class="form-control" id="room-name" placeholder="Room Name (e.g. Room 1)" required>
+      <input type="text" class="form-control" id="room-name" placeholder="Xonaning nomi (e.g. Room 1)" required>
     </div>
     <div class="col-md-2">
-      <input type="number" class="form-control" id="capacity" placeholder="Capacity" required min="1">
+      <input type="number" class="form-control" id="capacity" placeholder="Soni" required min="1">
     </div>
     <div class="col-md-2">
       <select id="floor" class="form-select" required>
-        <option value="">Select Floor</option>
-        <option value="1">1st Floor</option>
-        <option value="2">2nd Floor</option>
+        <option value="">Blockni Tanlagn</option>
+        <option value="1">1 - Blok</option>
+        <option value="2">2 - Blok</option>
       </select>
     </div>
     <div class="col-md-3">
-      <input type="number" class="form-control" id="price" placeholder="Price per Day" required step="0.01">
+      <input type="number" class="form-control" id="price" placeholder="Kunlik Tulov" required step="0.01">
     </div>
     <div class="col-md-1">
-      <button type="submit" class="btn btn-primary w-100">Add</button>
+      <button type="submit" class="btn btn-primary w-100">Qo`shish</button>
     </div>
   </form>
 
   <div class="mb-4">
-    <h4>🧾 Registered Rooms</h4>
-    <h5>2nd Floor</h5>
+    <h4>🧾 Ro`yxatdan o`tgan xonalar</h4>
+    <h5>2 - Blok </h5>
     <div id="floor-2" class="d-flex flex-wrap gap-3 mb-3"></div>
 
-    <h5>1st Floor</h5>
+    <h5>1 - Blok </h5>
     <div id="floor-1" class="d-flex flex-wrap gap-3"></div>
   </div>
 </div>

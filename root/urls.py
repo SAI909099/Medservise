@@ -1,3 +1,4 @@
+from django.views.generic import TemplateView
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
@@ -8,19 +9,20 @@ from apps.frontend_views import IndexView, ArchiveView, CashRegisterView, \
     DoctorView, DoctorAddView, DoctorPatientRoomsView, DoctorPaymentsView, PatientDetailView, PatientSelectionView, \
     PatientsView, PaymentsView, PriceManagementView, RegisterView, RegistrationView, RoomsView, ServicesView, \
     TreatmentView, TreatmentRegistrationView, TreatmentRoomManagementView, TurnDisplayView, TreatmentRoomPaymentsView, \
-    AdminDashboardView
+    AdminDashboardView , AccountantDashboardtView , PublicDoctorServicePageView
 urlpatterns = [
     path('api/v1/' , include('apps.urls')),
     path('admin/', admin.site.urls),
     path('api-auth/', include('rest_framework.urls')),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
                   # Optional UI:
-    path('api/schema/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
 
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     path('', IndexView.as_view(), name='index'),
+    path('accounting-dashboard/', AccountantDashboardtView.as_view(), name='accountant-dashboard'), 
     path('admin-dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),
     path('archive/', ArchiveView.as_view(), name='archive'),
     path('cash-register/', CashRegisterView.as_view(), name='cash-register'),
@@ -28,7 +30,7 @@ urlpatterns = [
     path('doctor-add/', DoctorAddView.as_view(), name='doctor-add'),
     path('doctor-patient-rooms/', DoctorPatientRoomsView.as_view(), name='doctor-patient-rooms'),
     path('doctor-payments/', DoctorPaymentsView.as_view(), name='doctor-payments'),
-    path('patient-detail/', PatientDetailView.as_view(), name='patient-detail'),
+    path('doctor/patient-detail/', PatientDetailView.as_view(), name='doctor-patient-detail'),
     path('patient-selection/', PatientSelectionView.as_view(), name='patient-selection'),
     path('patients/', PatientsView.as_view(), name='patients'),
     path('payments/', PaymentsView.as_view(), name='payments'),
@@ -43,6 +45,10 @@ urlpatterns = [
        name='treatment-room-management'),
     path('treatment-room-payments/', TreatmentRoomPaymentsView.as_view(), name='treatment-room-payments'),
     path('turn-display/', TurnDisplayView.as_view(), name='turn-display'),
+    path('print_receipt.html', TemplateView.as_view(template_name='print_receipt.html')),
+
+    path("services/doctor/<int:doctor_id>/", PublicDoctorServicePageView.as_view(), name="public-doctor-service-page"),
+
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) + static(settings.STATIC_URL,
                                                                                          document_root=settings.STATIC_ROOT)

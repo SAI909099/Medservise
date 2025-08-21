@@ -1,5 +1,4 @@
-// medservise-frontend/js/accountant-dashboard.js
-const API_BASE = "http://127.0.0.1:8000";
+const BASE_API = "http://89.39.95.150/api/v1/";
 const token = localStorage.getItem("token");
 
 function formatNumber(num) {
@@ -7,13 +6,12 @@ function formatNumber(num) {
 }
 
 function fetchDashboardData(start = '', end = '') {
-  const url = new URL(`${API_BASE}/api/v1/incomes/`);
+  const url = new URL("incomes/", BASE_API);
   if (start && end) {
     url.searchParams.append("start_date", start);
     url.searchParams.append("end_date", end);
   }
 
-  // Fetch dashboard data
   fetch(url, {
     headers: { Authorization: `Bearer ${token}` }
   })
@@ -26,12 +24,12 @@ function fetchDashboardData(start = '', end = '') {
       renderServiceIncome(data.service_income);
       renderRoomIncome(data.room_income);
 
-      // Fetch recent transactions separately
-      const transUrl = new URL(`${API_BASE}/api/v1/recent-transactions/`);
+      const transUrl = new URL("recent-transactions/", BASE_API);
       if (start && end) {
         transUrl.searchParams.append("start_date", start);
         transUrl.searchParams.append("end_date", end);
       }
+
       return fetch(transUrl, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -40,9 +38,7 @@ function fetchDashboardData(start = '', end = '') {
       if (!res.ok) throw new Error(`Transactions fetch failed: ${res.status}`);
       return res.json();
     })
-    .then(transactions => {
-      renderTransactions(transactions);
-    })
+    .then(renderTransactions)
     .catch(err => {
       console.error("❌ Error fetching data:", err);
       const table = document.getElementById("transaction-table");
@@ -66,8 +62,6 @@ function renderSummary(data) {
     methodsList.appendChild(li);
   });
 }
-
-
 
 function renderServiceIncome(data) {
   const ul = document.getElementById("service-income-list");
@@ -124,7 +118,9 @@ function translateType(type) {
     treatment: "Davolash",
     service: "Xizmat",
     room: "Xona",
-    other: "Boshqa"
+    other: "Boshqa",
+    outcome: "Xarajat",
+    income: "Daromad"
   }[type] || type;
 }
 
@@ -154,7 +150,7 @@ if (outcomeForm) {
       return;
     }
 
-    fetch(`${API_BASE}/api/v1/accountant/outcomes/`, {
+    fetch(`${BASE_API}accountant/outcomes/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -164,7 +160,9 @@ if (outcomeForm) {
     })
       .then(res => {
         if (!res.ok) {
-          return res.json().then(data => { throw new Error(data.detail || "Xatolik"); });
+          return res.json().then(data => {
+            throw new Error(data.detail || "Xatolik");
+          });
         }
         return res.json();
       })

@@ -2,29 +2,41 @@ const token = localStorage.getItem("token");
 const patientListDiv = document.getElementById("patient-list");
 const searchInput = document.getElementById("search-input");
 const yearFilter = document.getElementById("year-filter");
+const refreshBtn = document.getElementById("refresh-btn");
 
 let allPatients = [];
 
 function fetchPatients() {
-  fetch("http://localhost:8000/api/v1/patients/", {
-    headers: { Authorization: `Bearer ${token}` }
+  patientListDiv.innerHTML = "<p>Yuklanmoqda...</p>";
+  fetch("http://89.39.95.150/api/v1/patients/archive/", {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
   })
-    .then(res => res.json())
-    .then(patients => {
+    .then((res) => {
+      if (!res.ok) {
+        throw new Error(`API response: ${res.status}`);
+      }
+      return res.json();
+    })
+    .then((patients) => {
       allPatients = patients;
       populateYearFilter(patients);
       displayPatients(patients);
     })
-    .catch(err => {
-      console.error("❌ Failed to fetch patients", err);
-      patientListDiv.innerHTML = "<p>❌ Error loading patients</p>";
+    .catch((err) => {
+      console.error("❌ Error loading patients:", err);
+      patientListDiv.innerHTML =
+        "<p class='text-danger'>❌ Ma'lumotlar yuklanmadi. Qaytadan urinib ko'ring.</p>";
     });
 }
 
 function populateYearFilter(patients) {
-  const years = [...new Set(patients.map(p => new Date(p.created_at).getFullYear()))];
-  years.sort((a, b) => b - a); // Newest first
-  years.forEach(y => {
+  yearFilter.innerHTML = `<option value="">Barchasi</option>`;
+  const years = [...new Set(patients.map((p) => new Date(p.created_at).getFullYear()))];
+  years.sort((a, b) => b - a);
+  years.forEach((y) => {
     const opt = document.createElement("option");
     opt.value = y;
     opt.textContent = y;
@@ -34,20 +46,47 @@ function populateYearFilter(patients) {
 
 function displayPatients(patients) {
   if (!patients.length) {
-    patientListDiv.innerHTML = "<p>No patients found.</p>";
+    patientListDiv.innerHTML = "<p>Hech qanday bemor topilmadi.</p>";
     return;
   }
 
   patientListDiv.innerHTML = "";
-  patients.forEach(p => {
+  patients.forEach((p) => {
     const div = document.createElement("div");
-    div.className = "border p-2 mb-3 rounded";
+    div.className = "border p-3 mb-3 rounded";
+
+    const doctorName = p.doctor
+      ? `${p.doctor.first_name} ${p.doctor.last_name}`
+      : "Noma'lum";
+    const treatments = p.treatment_history?.length
+      ? p.treatment_history
+          .map(
+            (t) =>
+              `🛏 ${t.room} (${t.assigned_at} - ${t.discharged_at ?? "davom etmoqda"})`
+          )
+          .join("<br>")
+      : "<i>Yo'q</i>";
+    const labServices = p.lab_services?.length
+      ? p.lab_services
+          .map(
+            (l) =>
+              `🔬 ${l.service} (${l.price} so'm, ${l.status}, ${l.registered_at})`
+          )
+          .join("<br>")
+      : "<i>Yo'q</i>";
+    const totalPaid = p.total_payments ?? 0;
+
     div.innerHTML = `
       <h5>${p.first_name ?? "?"} ${p.last_name ?? "?"}</h5>
-      <p><strong>Phone:</strong> ${p.phone ?? "N/A"}</p>
-      <p><strong>Registered:</strong> ${new Date(p.created_at).toLocaleString()}</p>
-      <a class="btn btn-sm btn-outline-info" href="patient-detail.html?patient_id=${p.id}">🔎 View Info</a>
+      <p><strong>Telefon:</strong> ${p.phone ?? "N/A"}</p>
+      <p><strong>Ro'yxatdan o'tgan:</strong> ${new Date(p.created_at).toLocaleString("uz-UZ")}</p>
+      <p><strong>Shifokor:</strong> ${doctorName}</p>
+      <p><strong>Davolanish:</strong><br>${treatments}</p>
+      <p><strong>Laboratoriya xizmatlari:</strong><br>${labServices}</p>
+      <p><strong>To'langan summa:</strong> ${totalPaid} so'm</p>
+      <a class="btn btn-sm btn-outline-info" href="/doctor/patient-detail/?patient_id=${p.id}">🔎 Batafsil</a>
     `;
+
     patientListDiv.appendChild(div);
   });
 }
@@ -56,7 +95,7 @@ function applyFilters() {
   const searchTerm = searchInput.value.toLowerCase();
   const selectedYear = yearFilter.value;
 
-  const filtered = allPatients.filter(p => {
+  const filtered = allPatients.filter((p) => {
     const matchesSearch =
       p.first_name?.toLowerCase().includes(searchTerm) ||
       p.last_name?.toLowerCase().includes(searchTerm) ||
@@ -72,8 +111,10 @@ function applyFilters() {
   displayPatients(filtered);
 }
 
+// Event listeners
 searchInput.addEventListener("input", applyFilters);
 yearFilter.addEventListener("change", applyFilters);
+refreshBtn.addEventListener("click", fetchPatients);
 
-// Initial load
+// Fetch on load
 fetchPatients();

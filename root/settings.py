@@ -140,7 +140,8 @@ SPECTACULAR_SETTINGS = {
 
 
 
-CELERY_BROKER_URL = 'redis://localhost:6380/0'
+CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
+ 
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
@@ -183,6 +184,11 @@ TEMPLATES[0]['DIRS'] = [
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'medservise-frontend', 'static'),
+]
+
+
+CORS_ALLOWED_ORIGINS = [
+    "http://89.39.95.150",
 ]
 
 
