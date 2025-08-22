@@ -1,11 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uz">
 <head>
   <meta charset="UTF-8">
-  <title>Doctor's Patient Rooms</title>
+  <title>Mening bemorlarim</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
- <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body {
       display: flex;
@@ -55,53 +53,80 @@
   <h5 class="text-center">🩺 Medservise</h5>
   <a href="/doctor">📋 Bosh sahifa</a>
   <a href="/doctor-patient-rooms">🏥 Mening bemorlarim</a>
-  <a href="/" onclick="logout()">🚪 Chiqish</a>
+  <a href="#" onclick="logout()">🚪 Chiqish</a>
 </div>
 
-  <div class="container">
-    <h2 class="mb-4">👨‍⚕️ My Patients and Their Rooms</h2>
-    <div id="patient-room-list" class="row"></div>
+<div class="container">
+  <h2 class="mb-4">👨‍⚕️ Mening bemorlarim va ularning xonalari</h2>
+  <div id="patient-room-list" class="row">
+    <div class="text-muted">Yuklanmoqda...</div>
   </div>
+</div>
 
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        alert("Please log in.");
-        window.location.href = "/";
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const token = localStorage.getItem("token");
+    const BASE_API_URL = "http://89.39.95.150/api/v1/";
+    const listContainer = document.getElementById("patient-room-list");
+
+    if (!token) {
+      alert("Avval tizimga kiring!");
+      window.location.href = "index.html";
+      return;
+    }
+
+    fetch(`${BASE_API_URL}doctor/my-patient-rooms/`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+    .then(res => {
+      if (res.status === 401 || res.status === 403) {
+        alert("Sessiya tugagan. Iltimos, qaytadan tizimga kiring.");
+        localStorage.removeItem("token");
+        localStorage.removeItem("role");
+        window.location.href = "index.html";
+        throw new Error("Unauthorized");
+      }
+      if (!res.ok) {
+        throw new Error("Ma'lumotlarni olishda xatolik");
+      }
+      return res.json();
+    })
+    .then(data => {
+      listContainer.innerHTML = "";
+
+      if (!data || data.length === 0) {
+        listContainer.innerHTML = "<p class='text-muted'>Sizga biriktirilgan bemorlar yo‘q.</p>";
         return;
       }
 
-      const listContainer = document.getElementById("patient-room-list");
-
-      fetch("http://localhost:8000/api/v1/doctor/my-patient-rooms/", {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.length === 0) {
-          listContainer.innerHTML = "<p class='text-muted'>You currently have no patients assigned.</p>";
-          return;
-        }
-
-        data.forEach(patient => {
-          const div = document.createElement("div");
-          div.className = "col-md-4 mb-3";
-          div.innerHTML = `
-            <div class="card">
-              <div class="card-body">
-                <h5 class="card-title">${patient.first_name} ${patient.last_name}</h5>
-                <p class="card-text">Room: <strong>${patient.room}</strong></p>
-                ${patient.floor !== null ? `<p class="card-text">Floor: ${patient.floor}</p>` : ""}
-              </div>
+      data.forEach(patient => {
+        const div = document.createElement("div");
+        div.className = "col-md-4 mb-3";
+        div.innerHTML = `
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <h5 class="card-title">${patient.first_name} ${patient.last_name}</h5>
+              <p class="card-text">Xona: <strong>${patient.room}</strong></p>
+              ${patient.floor !== null ? `<p class="card-text">Qavat: ${patient.floor}</p>` : ""}
             </div>
-          `;
-          listContainer.appendChild(div);
-        });
+          </div>
+        `;
+        listContainer.appendChild(div);
       });
+    })
+    .catch(error => {
+      listContainer.innerHTML = `<p class="text-danger">Xatolik: ${error.message}</p>`;
+      console.error("Xatolik:", error);
     });
-  </script>
+  });
+
+  function logout() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    window.location.href = "index.html";
+  }
+</script>
 </body>
 </html>

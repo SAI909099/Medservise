@@ -2,7 +2,7 @@ class CashRegister {
     constructor() {
         this.token = localStorage.getItem("token");
         this.refresh = localStorage.getItem("refresh");
-        this.apiBase = "http://localhost:8000/api/v1";
+        this.apiBase = "http://89.39.95.150/api/v1";
 
         if (!this.token) {
             alert("Iltimos, avval tizimga kiring");
@@ -22,8 +22,6 @@ class CashRegister {
 
         document.getElementById("cash-form")?.addEventListener("submit", (e) => this.submitPayment(e));
         document.getElementById("transaction_type")?.addEventListener("change", (e) => this.toggleServiceSelect(e.target.value));
-
-        // Removed: edit-amount-checkbox listener
     }
 
     formatAmount(amount) {
@@ -31,7 +29,7 @@ class CashRegister {
     }
 
     formatCurrency(amount) {
-        return `so'm ${parseFloat(amount).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+        return `${parseFloat(amount).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} so'm`;
     }
 
     async loadServices() {
@@ -98,8 +96,8 @@ class CashRegister {
         try {
             const res = await fetch(`${this.apiBase}/token/refresh/`, {
                 method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({refresh: this.refresh})
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ refresh: this.refresh })
             });
             const data = await res.json();
             localStorage.setItem("token", data.access);
@@ -135,10 +133,7 @@ class CashRegister {
 
                 const li = document.createElement("li");
                 li.className = "list-group-item list-group-item-action";
-                li.innerHTML = `
-                    <strong>${p.first_name} ${p.last_name}</strong> (${p.phone})<br>
-                    <small class="text-muted">${info}</small>
-                `;
+                li.innerHTML = `<strong>${p.first_name} ${p.last_name}</strong> (${p.phone})<br><small class="text-muted">${info}</small>`;
                 li.addEventListener("click", () => this.selectPatient(p.id));
                 list.appendChild(li);
             });
@@ -153,7 +148,7 @@ class CashRegister {
             const res = await this.authFetch(`${this.apiBase}/cash-register/patient/${patientId}/`);
             const data = await res.json();
 
-            const {patient, balance, total_paid} = data.summary || {};
+            const { patient, balance, total_paid } = data.summary || {};
             if (!patient) throw new Error("Bemor ma'lumotlari xato");
 
             document.getElementById("patient").value = patientId;
@@ -176,12 +171,7 @@ class CashRegister {
             this.toggleServiceSelect(txType);
 
             const amountField = document.getElementById("amount");
-
-            if (txType === "consultation") {
-                amountField.value = parseFloat(balance || 0).toFixed(2);
-            } else {
-                amountField.value = parseFloat(patient.patients_service?.price || 0).toFixed(2);
-            }
+            amountField.value = parseFloat(txType === "consultation" ? balance || 0 : patient.patients_service?.price || 0).toFixed(2);
             amountField.readOnly = true;
 
             this.renderTransactions(data.transactions);
@@ -254,7 +244,7 @@ class CashRegister {
             if (!res.ok) throw new Error("To‘lov muvaffaqiyatsiz");
 
             const result = await res.json();
-            alert("✅ To‘lov muvaffaqiyatli bajarildi!");
+            alert("✅ To‘lov muvaffiyatli bajarildi!");
             document.getElementById("cash-form").reset();
 
             this.selectPatient(data.patient);
@@ -265,70 +255,84 @@ class CashRegister {
         }
     }
 
+
+
+    
     async printReceipt(id) {
-    try {
-        const res = await this.authFetch(`${this.apiBase}/cash-register/receipt/${id}/`);
-        if (!res.ok) throw new Error("Failed to fetch receipt");
-        const data = await res.json();
-
-        const qrText = JSON.stringify({
-            name: data.patient_name,
-            amount: data.amount,
-            method: data.payment_method,
-            status: data.status,
-            notes: data.notes || "",
-            date: data.date,
-            processed_by: data.processed_by
-        });
-
-        const encodedQR = encodeURIComponent(qrText);
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodedQR}&size=150x150`;
-
-        const printWindow = window.open("", "printWindow");
-        const html = `
-        <html>
-            <head>
-                <meta charset="UTF-8">
-                <title>Receipt</title>
-                <style>
-                    body { font-family: sans-serif; padding: 20px; }
-                    h2 { margin-bottom: 10px; }
-                    p { margin: 4px 0; }
-                    .qr { margin-top: 20px; text-align: center; }
-                    .qr img { width: 150px; height: 150px; }
-                </style>
-            </head>
-            <body>
-                <h2>Chek raqami: ${data.receipt_number}</h2>
-                <p><strong>Sana:</strong> ${data.date}</p>
-                <p><strong>Bemor:</strong> ${data.patient_name}</p>
-                <p><strong>To‘lov turi:</strong> ${data.transaction_type}</p>
-                <p><strong>Miqdori:</strong> ${this.formatCurrency(data.amount)}</p>
-                <p><strong>To‘lov usuli:</strong> ${data.payment_method}</p>
-                <p><strong>Qabul qiluvchi:</strong> ${data.processed_by}</p>
-                ${data.notes ? `<p><strong>Izoh:</strong> ${data.notes}</p>` : ""}
-                <div class="qr">
-                    <p><strong>QR kod (chek maʼlumotlari):</strong></p>
-                    <img src="${qrUrl}" alt="QR Code">
-                </div>
-                <script>
-                    setTimeout(() => {
-                        window.print();
-                        window.close();
-                    }, 300);
-                </script>
-            </body>
-        </html>`;
-
-        printWindow.document.open();
-        printWindow.document.write(html);
-        printWindow.document.close();
-
-    } catch (err) {
-        alert("❌ Print failed");
-        console.error(err);
+        try {
+            const res = await this.authFetch(`${this.apiBase}/cash-register/receipt/${id}/`);
+            if (!res.ok) throw new Error("Failed to fetch receipt");
+            const data = await res.json();
+    
+            const lines = [];
+            lines.push("NEURO PULS KLINIKASI");
+            lines.push("-----------------------------");
+            lines.push(`Chek raqami: ${data.receipt_number}`);
+            lines.push(`Sana      : ${data.date}`);
+            lines.push(`Bemor     : ${data.patient_name}`);
+            lines.push(`Turi      : ${data.transaction_type}`);
+            lines.push(`Miqdori   : ${this.formatCurrency(data.amount)}`);
+            lines.push(`Usul      : ${data.payment_method}`);
+            lines.push(`Qabulchi  : ${data.processed_by}`);
+            if (data.notes) lines.push(`Izoh      : ${data.notes}`);
+            lines.push("-----------------------------");
+            lines.push("Rahmat! Kuningiz yaxshi otsin!");
+    
+            const qzReceiptText = lines.join("\n") + "\n\n\n\n\n\n\n\n\n\n";
+            const browserReceiptText = lines.join("\n\n").trim();
+    
+            // Generate QR code base64
+            let qrImageData = null;
+            try {
+                const qrContent = `${window.location.origin}/cash-register/receipt/${id}/`;
+                const qrDataURL = await QRCode.toDataURL(qrContent); // base64 image
+                qrImageData = qrDataURL.split(",")[1]; // remove "data:image/png;base64,"
+            } catch (qrErr) {
+                console.warn("QR Code generation failed:", qrErr);
+            }
+    
+            if (typeof qz !== "undefined" && qz.websocket) {
+                try {
+                    await qz.websocket.connect();
+                    const config = qz.configs.create("XP-58C");
+    
+                    const dataToPrint = [
+                        {
+                            type: 'raw',
+                            format: 'plain',
+                            data: qzReceiptText
+                        }
+                    ];
+    
+                    if (qrImageData) {
+                        dataToPrint.push({
+                            type: 'image',
+                            format: 'base64',
+                            data: qrImageData
+                        });
+                    }
+    
+                    await qz.print(config, dataToPrint);
+                    console.log("✅ Receipt printed via QZ Tray");
+                    await qz.websocket.disconnect();
+                } catch (qzErr) {
+                    console.error("❌ QZ Tray Print Error:", qzErr);
+                    const encodedReceipt = encodeURIComponent(browserReceiptText);
+                    window.location.href = `/static/print_receipt.html?receipt=${encodedReceipt}`;
+                }
+            } else {
+                console.warn("⚠️ QZ Tray not available, using browser print fallback");
+                const encodedReceipt = encodeURIComponent(browserReceiptText);
+                window.location.href = `/static/print_receipt.html?receipt=${encodedReceipt}`;
+            }
+        } catch (err) {
+            console.error("❌ Print Error:", err.message);
+            alert(`❌ Print failed: ${err.message}`);
+        }
     }
-    }
+
+
+
 }
 
 const cashRegister = new CashRegister();

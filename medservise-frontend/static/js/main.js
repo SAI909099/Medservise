@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const email = document.querySelector("input[name='email']").value;
       const password = document.querySelector("input[name='password']").value;
 
-      fetch("http://localhost:8000/api/v1/login/", {
+      fetch("/api/v1/login/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -21,42 +21,81 @@ document.addEventListener("DOMContentLoaded", function () {
         .then((data) => {
           if (data.access) {
             localStorage.setItem("token", data.access);
-            localStorage.setItem("access", data.access);
             localStorage.setItem("refresh", data.refresh);
-            localStorage.setItem("is_admin", data.is_admin);
 
-            alert("Tizimga muvaffaqiyatli kirildi!");
-
-            // ✅ Redirect only based on is_admin
-            if (data.is_admin === true) {
-              window.location.href = "/admin-dashboard/";
-            } else {
-              window.location.href = "/doctor/";
-            }
+            return fetch("/api/v1/user-profile/", {
+              headers: { Authorization: `Bearer ${data.access}` },
+            }).then(res => {
+              if (!res.ok) throw new Error("Foydalanuvchi aniqlanmadi");
+              return res.json();
+            });
           } else {
             throw new Error("Access token topilmadi");
           }
         })
+        .then((user) => {
+          if (!user) throw new Error("Foydalanuvchi aniqlanmadi");
+
+          localStorage.setItem("role", user.role || "");
+          localStorage.setItem("is_superuser", user.is_superuser ? "true" : "false");
+
+          console.log("✅ Role:", user.role);
+          console.log("✅ Is Superuser:", user.is_superuser);
+
+          alert("✅ Tizimga muvaffaqiyatli kirildi!");
+
+          if (user.is_superuser === true) {
+            window.location.href = "/admin-dashboard/";
+          } else {
+            switch (user.role) {
+              case "doctor":
+                window.location.href = "/doctor/";
+                break;
+              case "cashier":
+                window.location.href = "/cash-register/";
+                break;
+              case "accountant":
+                window.location.href = "/accounting-dashboard/";
+                break;
+              case "registration":
+                window.location.href = "/registration/";
+                break;
+              default:
+                alert("❌ Ruxsatsiz foydalanuvchi turi");
+                localStorage.clear();
+                window.location.href = "/";
+            }
+          }
+        })
         .catch((error) => {
           alert("Kirishda xatolik: " + error.message);
+          localStorage.clear();
         });
     });
   }
 
+  // ------------------------ PAGE ACCESS CONTROLS ------------------------
+  const path = window.location.pathname;
+  const token = localStorage.getItem("token");
+  const role = localStorage.getItem("role");
+  const isSuperuser = localStorage.getItem("is_superuser") === "true";
+
+  const redirectHome = () => {
+    alert("❌ Sizda ushbu sahifaga kirish huquqi yo‘q.");
+    localStorage.clear();
+    window.location.href = "/";
+  };
+
+  if (path === "/admin-dashboard/" && (!token || !isSuperuser)) redirectHome();
+  if (path === "/doctor/" && (!token || role !== "doctor")) redirectHome();
+  if (path === "/cash-register/" && (!token || role !== "cashier")) redirectHome();
+  if (path === "/accounting-dashboard/" && (!token || role !== "accountant")) redirectHome();
+  if (path === "/registration/" && (!token || role !== "registration")) redirectHome();
+
   // ------------------------ DOCTOR DASHBOARD LOGIC ------------------------
-  if (window.location.pathname === "/doctor/") {
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      alert("Avval tizimga kiring!");
-      window.location.href = "/";
-      return;
-    }
-
-    fetch("http://localhost:8000/api/v1/doctor/appointments/", {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-      },
+  if (path === "/doctor/") {
+    fetch("/api/v1/my-appointments/", {
+      headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => {
         if (!res.ok) throw new Error("Ma'lumotlarni olishda xatolik");
@@ -68,11 +107,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
         tableBody.innerHTML = "";
 
-        data.appointments.forEach((app) => {
+        data.forEach((app) => {
           const row = document.createElement("tr");
           row.innerHTML = `
             <td>${app.patient.first_name} ${app.patient.last_name}</td>
-            <td>${app.doctor?.name || 'Nomaʼlum'}</td>
             <td>${app.reason}</td>
             <td>${app.status}</td>
             <td>${new Date(app.created_at).toLocaleString()}</td>
@@ -89,7 +127,7 @@ document.addEventListener("DOMContentLoaded", function () {
       })
       .catch((err) => {
         console.error("Appointmentlarni olishda xatolik:", err);
-        alert("Maʼlumotlarni yuklashda muammo yuz berdi.");
+        alert("Qabul roʻyxatini yuklab boʻlmadi.");
       });
   }
 });
@@ -98,7 +136,7 @@ document.addEventListener("DOMContentLoaded", function () {
 function markDone(id) {
   const token = localStorage.getItem("token");
 
-  fetch(`http://localhost:8000/api/v1/doctor/appointments/${id}/`, {
+  fetch(`/api/v1/doctor/appointments/${id}/`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -119,7 +157,7 @@ function markDone(id) {
 function deleteApp(id) {
   const token = localStorage.getItem("token");
 
-  fetch(`http://localhost:8000/api/v1/doctor/appointments/${id}/`, {
+  fetch(`/api/v1/doctor/appointments/${id}/`, {
     method: "DELETE",
     headers: {
       "Authorization": `Bearer ${token}`,
@@ -138,7 +176,7 @@ function deleteApp(id) {
 function viewUploads(patientId) {
   const token = localStorage.getItem("token");
 
-  fetch(`http://localhost:8000/api/v1/patient-results/?patient=${patientId}`, {
+  fetch(`/api/v1/patient-results/?patient=${patientId}`, {
     headers: {
       "Authorization": `Bearer ${token}`,
     },

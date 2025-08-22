@@ -1,7 +1,5 @@
-// admin-dashboard.js
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "http://89.39.95.150/api/v1";
 
-// Chart references
 let doctorChart = null;
 let serviceChart = null;
 let monthlyChart = null;
@@ -16,7 +14,7 @@ function loadStatistics(startDate = '', endDate = '') {
 }
 
 function loadIncomeData(startDate = '', endDate = '') {
-  const url = new URL(API_BASE + '/api/v1/incomes/');
+  const url = new URL(`${API_BASE}/incomes/`);
   if (startDate && endDate) {
     url.searchParams.append('start_date', startDate);
     url.searchParams.append('end_date', endDate);
@@ -25,18 +23,15 @@ function loadIncomeData(startDate = '', endDate = '') {
   fetch(url, authHeader())
     .then(res => res.json())
     .then(data => {
-      document.getElementById('total-income').innerText =
-        formatNumber(data.total_income || 0) + " so'm";
-      document.getElementById('total-outcome').innerText =
-        formatNumber(data.total_outcome || 0) + " so'm";
-      document.getElementById('balance').innerText =
-        formatNumber(data.balance || 0) + " so'm";
+      document.getElementById('total-income').innerText = formatNumber(data.total_income || 0) + " so'm";
+      document.getElementById('total-outcome').innerText = formatNumber(data.total_outcome || 0) + " so'm";
+      document.getElementById('balance').innerText = formatNumber(data.balance || 0) + " so'm";
     })
     .catch(err => console.error("❌ Daromad/xarajat/balans statistikasi yuklanmadi:", err));
 }
 
 function loadAdminStats(startDate = '', endDate = '') {
-  const url = new URL(API_BASE + '/api/v1/admin-statistics/');
+  const url = new URL(`${API_BASE}/admin-statistics/`);
   if (startDate && endDate) {
     url.searchParams.append('start_date', startDate);
     url.searchParams.append('end_date', endDate);
@@ -45,18 +40,15 @@ function loadAdminStats(startDate = '', endDate = '') {
   fetch(url, authHeader())
     .then(res => res.json())
     .then(data => {
-      document.getElementById('treatment-room-profit').innerText =
-        formatNumber(data.treatment_room_profit || 0) + " so'm";
-      document.getElementById('doctor-profit').innerText =
-        formatNumber(data.doctor_profit || 0) + " so'm";
-      document.getElementById('service-profit').innerText =
-        formatNumber(data.service_profit || 0) + " so'm";
+      document.getElementById('treatment-room-profit').innerText = formatNumber(data.treatment_room_profit || 0) + " so'm";
+      document.getElementById('doctor-profit').innerText = formatNumber(data.doctor_profit || 0) + " so'm";
+      document.getElementById('service-profit').innerText = formatNumber(data.service_profit || 0) + " so'm";
     })
     .catch(err => console.error("❌ Admin statistikasi yuklanmadi:", err));
 }
 
 function loadRecentTransactions(startDate = '', endDate = '') {
-  const url = new URL(API_BASE + '/api/v1/recent-transactions/');
+  const url = new URL(`${API_BASE}/recent-transactions/`);
   if (startDate && endDate) {
     url.searchParams.append('start_date', startDate);
     url.searchParams.append('end_date', endDate);
@@ -122,7 +114,11 @@ function drawBarChart(canvasId, title, items, chartRefName) {
     type: "bar",
     data: {
       labels: items.map(i => i.name),
-      datasets: [{ label: title, data: items.map(i => i.profit), backgroundColor: generateColors(items.length) }]
+      datasets: [{
+        label: title,
+        data: items.map(i => i.profit),
+        backgroundColor: generateColors(items.length)
+      }]
     },
     options: {
       responsive: true,
@@ -176,7 +172,7 @@ function drawMonthlyComparisonChart(monthlyData) {
 }
 
 function loadCharts(startDate = '', endDate = '') {
-  const url = new URL(API_BASE + '/api/v1/admin-chart-data/');
+  const url = new URL(`${API_BASE}/admin-chart-data/`);
   if (startDate && endDate) {
     url.searchParams.append('start_date', startDate);
     url.searchParams.append('end_date', endDate);
@@ -201,6 +197,7 @@ function authHeader() {
   };
 }
 
+// ✅ Filter form listener
 const filterForm = document.getElementById('filter-form');
 if (filterForm) {
   filterForm.addEventListener('submit', function (e) {
@@ -213,32 +210,36 @@ if (filterForm) {
   });
 }
 
-// On load, ensure user is authorized
-window.addEventListener('DOMContentLoaded', () => {
+// ✅ Check superuser before loading dashboard
+window.addEventListener('DOMContentLoaded', async () => {
   const token = localStorage.getItem("token");
+
   if (!token) {
-    alert("Iltimos, tizimga kiring.");
+    alert("❌ Tizimga kirilmagan.");
+    localStorage.clear();
     window.location.href = "/";
     return;
   }
 
-  fetch(`${API_BASE}/api/v1/profile/`, authHeader())
-    .then(res => {
-      if (!res.ok) throw new Error("Unauthorized");
-      return res.json();
-    })
-    .then(data => {
-      if (!data.is_superuser) {
-        alert("❌ Sizda admin panelga kirish huquqi yo‘q.");
-        window.location.href = "/";
-      } else {
-        loadStatistics();
-        loadRecentTransactions();
-        loadCharts();
-      }
-    })
-    .catch(err => {
-      console.error("❌ Kirishda xatolik:", err);
+  try {
+    const res = await fetch(`${API_BASE}/user-profile/`, authHeader());
+    const user = await res.json();
+
+    if (!user.is_superuser) {
+      alert("❌ Sizda admin panelga kirish huquqi yo‘q.");
+      localStorage.clear();
       window.location.href = "/";
-    });
+      return;
+    }
+
+    // ✅ User is superuser — load dashboard
+    loadStatistics();
+    loadRecentTransactions();
+    loadCharts();
+  } catch (err) {
+    console.error("❌ Profilni aniqlashda xatolik:", err);
+    alert("❌ Profilni aniqlashda xatolik.");
+    localStorage.clear();
+    window.location.href = "/";
+  }
 });

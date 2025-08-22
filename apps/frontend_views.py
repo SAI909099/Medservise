@@ -13,6 +13,9 @@ from rest_framework.views import APIView
 class IndexView(TemplateView):
     template_name = "index.html"
 
+class AccountantDashboardtView(TemplateView):
+    template_name = "accounting-dashboard.html"
+
 class AdminDashboardView(TemplateView):
     template_name = "admin-dashboard.html"
 
@@ -35,7 +38,7 @@ class DoctorPaymentsView(TemplateView):
     template_name = "doctor-payments.html"
 
 class PatientDetailView(TemplateView):
-    template_name = "patient-detail.html"
+    template_name = "doctor/patient-detail.html"
 
 class PatientSelectionView(TemplateView):
     template_name = "patient_selection.html"
@@ -88,3 +91,6 @@ class UserProfileView(APIView):
             "last_name": user.last_name,
             "is_superuser": user.is_superuser,
         })
+
+class PublicDoctorServicePageView(TemplateView):
+    template_name = "doctor_service_lab.html"

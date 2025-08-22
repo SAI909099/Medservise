@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const token = localStorage.getItem("token");
 
   function loadRooms() {
-    fetch("http://localhost:8000/api/v1/treatment-rooms/", {
+    fetch("http://89.39.95.150/api/v1/treatment-rooms/", {
       headers: {
         "Authorization": `Bearer ${token}`
       }
@@ -22,6 +22,10 @@ document.addEventListener("DOMContentLoaded", () => {
           `;
           list.appendChild(div);
         });
+      })
+      .catch(err => {
+        console.error("❌ Failed to load rooms:", err);
+        alert("Xonalarni yuklashda xatolik yuz berdi.");
       });
   }
 
@@ -30,7 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const name = document.getElementById("room-name").value;
     const capacity = document.getElementById("room-capacity").value;
 
-    fetch("http://localhost:8000/api/v1/treatment-rooms/", {
+    fetch("http://89.39.95.150/api/v1/treatment-rooms/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -38,9 +42,17 @@ document.addEventListener("DOMContentLoaded", () => {
       },
       body: JSON.stringify({ name, capacity })
     })
+      .then(res => {
+        if (!res.ok) throw new Error("Xonani qo‘shib bo‘lmadi");
+        return res.json();
+      })
       .then(() => {
         loadRooms();
         e.target.reset();
+      })
+      .catch(err => {
+        console.error("❌ Add room error:", err);
+        alert("Xonani qo‘shishda xatolik yuz berdi.");
       });
   });
 

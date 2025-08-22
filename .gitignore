@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+
+# Env/Secrets
+.env
+*.env
+
+# Virtualenv
+.venv/
+venv/
+
+# Django/Build
+static/
+media/
+*.sqlite3
+
+# Runtime/Artifacts
+logs/
+gunicorn.sock
+celerybeat-schedule
+*.pid
+
+# IDE
+.idea/
+.vscode/

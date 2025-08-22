@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7
+    container_name: redis-master
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --replica-read-only no
+    environment:
+      - REDIS_REPLICATION_MODE=master
+
+volumes:
+  redis_data:

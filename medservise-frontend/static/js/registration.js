@@ -2,13 +2,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const token = localStorage.getItem("token");
   if (!token) {
     alert("Login required.");
-    location.href = "index.html";
+    location.href = "/";
     return;
   }
 
-  const headers = {
-    Authorization: `Bearer ${token}`
-  };
+  const BASE_URL = "http://89.39.95.150/api/v1/";
+  const headers = { Authorization: `Bearer ${token}` };
 
   const doctorSelect = document.getElementById("doctor_id");
   const serviceContainer = document.getElementById("service-options");
@@ -16,8 +15,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let allServices = [];
 
-  // Load doctor list
-  fetch("http://localhost:8000/api/v1/doctor-list/", { headers })
+  // Load doctors
+  fetch(`${BASE_URL}doctor-list/`, { headers })
     .then(res => res.json())
     .then(doctors => {
       doctors.forEach(doc => {
@@ -27,21 +26,22 @@ document.addEventListener("DOMContentLoaded", () => {
         option.dataset.price = doc.consultation_price || 0;
         doctorSelect.appendChild(option);
       });
-    });
+    })
+    .catch(err => console.error("❌ Failed to fetch doctors:", err));
 
-  // Load all services
-  fetch("http://localhost:8000/api/v1/services/", { headers })
+  // Load services
+  fetch(`${BASE_URL}services/`, { headers })
     .then(res => res.json())
     .then(data => {
       allServices = data;
-    });
+    })
+    .catch(err => console.error("❌ Failed to fetch services:", err));
 
   doctorSelect.addEventListener("change", () => {
     const selectedDoctorId = parseInt(doctorSelect.value);
     const selectedPrice = parseFloat(doctorSelect.options[doctorSelect.selectedIndex].dataset.price || 0);
     document.getElementById("expected_fee").value = selectedPrice.toFixed(2);
 
-    // Filter services for the selected doctor
     serviceContainer.innerHTML = "";
     const filtered = allServices.filter(s => s.doctor?.id === selectedDoctorId);
 
@@ -49,10 +49,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const div = document.createElement("div");
       div.className = "form-check";
       div.innerHTML = `
-        <input class="form-check-input service-checkbox" type="checkbox" 
+        <input class="form-check-input service-checkbox" type="checkbox"
                id="service-${service.id}" value="${service.price}" data-id="${service.id}">
         <label class="form-check-label" for="service-${service.id}">
-          ${service.name} (${service.price} so'm )
+          ${service.name} (${service.price} so'm)
         </label>
       `;
       serviceContainer.appendChild(div);
@@ -97,7 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     try {
-      const res = await fetch("http://localhost:8000/api/v1/register-patient/", {
+      const res = await fetch(`${BASE_URL}register-patient/`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify(data)
@@ -109,27 +109,25 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const result = await res.json();
-      alert("✅ Patient registered successfully!");
+      console.log("✅ Patient registered:", result);
+      alert("✅ Bemor muvaffaqiyatli ro'yxatdan o'tdi!");
 
-      // Print via backend
-      const printRes = await fetch("http://localhost:8000/api/v1/print-turn/", {
-        method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          patient_name: `${result.patient.first_name} ${result.patient.last_name}`,
-          doctor_name: result.doctor_name,
-          turn_number: result.turn_number
-        })
-      });
+      const printData = {
+        receipt_number: result.id || result.turn_number || "N/A",
+        date: result.date || new Date().toLocaleString('uz-UZ', { dateStyle: 'short', timeStyle: 'short' }),
+        patient_name: `${result.patient.first_name} ${result.patient.last_name}`,
+        doctor_name: result.doctor_name || "Nomaʼlum",
+        turn_number: result.turn_number || "N/A",
+        patient_id: result.patient.id || "N/A",
+        amount: parseFloat(document.getElementById("total_fee").value || 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".") + " so'm",
+        payment_method: result.payment_method || "Naqd",
+        status: result.status || "PAID",
+        notes: result.reason || "Yoʻq",
+        processed_by: result.processed_by || "Tizim"
+      };
 
-      if (!printRes.ok) {
-        const printErr = await printRes.text();
-        throw new Error("🖨️ Print error: " + printErr);
-      }
+      openPrintWindow(printData);
 
-      console.log("🖨️ USB receipt printed");
-
-      // Reset form
       form.reset();
       serviceContainer.innerHTML = "";
       document.getElementById("expected_fee").value = "";
@@ -137,12 +135,123 @@ document.addEventListener("DOMContentLoaded", () => {
 
     } catch (err) {
       console.error("❌ Error:", err.message);
-      alert("❌ Error: " + err.message);
+      alert("❌ Xatolik: " + err.message);
     }
   });
+
+  function openPrintWindow(data) {
+    const win = window.open("", "PrintWindow", "width=400,height=600");
+
+    // Format receipt text for QR code
+    const lines = [
+      "MEDSERVISE CLINIC",
+      "-----------------------------",
+      `Chek raqami: ${data.receipt_number}`,
+      `Sana: ${data.date}`,
+      `Bemor: ${data.patient_name}`,
+      `Shifokor: ${data.doctor_name}`,
+      `Navbat raqami: ${data.turn_number}`,
+      `Miqdori: ${data.amount}`,
+      `To'lov usuli: ${data.payment_method}`,
+      `Holat: ${data.status}`,
+      `Izoh: ${data.notes}`,
+      `Qabulchi: ${data.processed_by}`,
+      "-----------------------------",
+      "Rahmat! Kuningiz yaxshi otsin!"
+    ];
+    const receiptText = lines.join("\n");
+    const encodedReceipt = encodeURIComponent(receiptText);
+
+    win.document.write(`
+      <html lang="uz">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Ro'yxatdan o'tish cheki</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              text-align: center;
+              margin: 20px;
+            }
+            .receipt {
+              max-width: 400px;
+              margin: 0 auto;
+              border: 1px solid #000;
+              padding: 20px;
+            }
+            .header {
+              font-size: 24px;
+              font-weight: bold;
+              margin-bottom: 20px;
+            }
+            .details {
+              text-align: left;
+              margin-bottom: 20px;
+            }
+            .details p {
+              margin: 5px 0;
+              font-size: 16px;
+            }
+            img {
+              display: block;
+              margin: 10px auto;
+              width: 100px;
+              height: 100px;
+            }
+            button {
+              padding: 10px 20px;
+              font-size: 16px;
+              cursor: pointer;
+              margin: 5px;
+            }
+            @media print {
+              button {
+                display: none;
+              }
+              @page {
+                margin: 0;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="receipt">
+            <div class="header">Ro'yxatdan o'tish cheki</div>
+            <div class="details">
+              <p><strong>Chek raqami:</strong> ${data.receipt_number}</p>
+              <p><strong>Sana:</strong> ${data.date}</p>
+              <p><strong>Bemor ismi:</strong> ${data.patient_name}</p>
+              <p><strong>Shifokor ismi:</strong> ${data.doctor_name}</p>
+              <p><strong>Navbat raqami:</strong> <span style="font-size: 20px; font-weight: bold;">${data.turn_number}</span></p>
+              <p><strong>Summa:</strong> ${data.amount}</p>
+              <p><strong>To'lov usuli:</strong> ${data.payment_method}</p>
+              <p><strong>Holat:</strong> ${data.status}</p>
+              <p><strong>Izoh:</strong> ${data.notes}</p>
+              <p><strong>Qabul qilgan:</strong> ${data.processed_by}</p>
+            </div>
+            <img id="qr-code" src="https://api.qrserver.com/v1/create-qr-code/?data=${encodedReceipt}&size=100x100" alt="QR Code">
+            <button onclick="window.print()">Chop etish</button>
+            <button onclick="window.close()">Yopish</button>
+          </div>
+          <script>
+            window.onload = () => {
+              window.focus();
+              setTimeout(() => {
+                window.print();
+                window.onafterprint = () => window.close();
+              }, 600);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+
+    win.document.close();
+  }
 });
 
 function logout() {
   localStorage.removeItem("token");
-  location.href = "index.html";
+  location.href = "/";
 }

@@ -25,6 +25,6 @@ CELERY_BEAT_SCHEDULE = {
     },
     'daily-room-charges': {
         'task': 'apps.tasks.apply_daily_room_charges',
-        'schedule': crontab(minute='*'),  # 🕘 Daily at 9 AM
+        'schedule': crontab(hour=9, minute=0),  # 🕘 Daily at 9 AM
     },
 }

@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:8000/api/v1";
+const BASE_URL = "http://89.39.95.150/api/v1";
 const token = localStorage.getItem("token");
 
 if (!token) {

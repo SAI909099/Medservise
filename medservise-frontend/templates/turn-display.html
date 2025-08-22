@@ -42,17 +42,15 @@
 </head>
 <body>
   <div class="turn-container" id="turn-display">
-    <div class="turn-number">Loading...</div>
-    <div class="doctor-name">Please wait...</div>
+    <div class="turn-number">Yuklanmoqda...</div>
+    <div class="doctor-name">Iltimos Kuting...</div>
   </div>
 
   <h2 style="color:white; margin-top: 20px;">📝 Navbatdagi Bemorlar</h2>
-  <div class="queue-list" id="queue-list">
-    <!-- Queued patients will be inserted here -->
-  </div>
+  <div class="queue-list" id="queue-list"></div>
 
-  <audio id="turn-sound" src="/sound/beep.wav" preload="auto"></audio>
+  <audio id="turn-sound" src="/static/sound/beep.wav" preload="auto"></audio>
 
-  <script src="../static/js/turn-display.js"></script>
+  <script src="/static/js/turn-display.js"></script>
 </body>
 </html>

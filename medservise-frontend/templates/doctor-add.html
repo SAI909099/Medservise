@@ -1,164 +1,67 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uz">
 <head>
   <meta charset="UTF-8">
-  <title>Manage Doctors</title>
+  <title>Foydalanuvchi Qo‘shish</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <style>
+    body { background-color: #f8f9fa; }
+  </style>
 </head>
-<body class="p-4 bg-light">
-<div class="container">
-  <h2 class="mb-4">🧑‍⚕️ Doctor Management</h2>
+<body class="p-4">
+  <div class="container">
+    <h2 class="mb-4">👤 Foydalanuvchi Qo‘shish (Doctor / Staff)</h2>
 
-  <!-- ✅ Add / Update Doctor -->
-  <form id="doctor-form" class="row g-3 mb-5">
-    <input type="hidden" id="doctor-id">
-    <div class="col-md-6"><input type="text" class="form-control" id="first-name" placeholder="First Name" required></div>
-    <div class="col-md-6"><input type="text" class="form-control" id="last-name" placeholder="Last Name" required></div>
-    <div class="col-md-6"><input type="email" class="form-control" id="email" placeholder="Email" required></div>
-    <div class="col-md-6"><input type="password" class="form-control" id="password" placeholder="Password"></div>
-    <div class="col-md-6"><input type="date" class="form-control" id="dob" placeholder="Date of Birth" required></div>
-    <div class="col-md-6"><input type="text" class="form-control" id="phone" placeholder="Phone Number" required></div>
-    <div class="col-md-6"><input type="text" class="form-control" id="specialty" placeholder="Specialty" required></div>
-    <div class="col-md-12">
-      <button type="submit" class="btn btn-primary w-100" id="submit-btn">Create Doctor</button>
+    <!-- 🔽 Registration Form -->
+    <form id="doctor-form" class="row g-3 mb-5">
+      <div class="col-md-6">
+        <input type="text" class="form-control" id="first-name" placeholder="Ism" required>
+      </div>
+      <div class="col-md-6">
+        <input type="text" class="form-control" id="last-name" placeholder="Familiya" required>
+      </div>
+      <div class="col-md-6">
+        <input type="email" class="form-control" id="email" placeholder="Email" required>
+      </div>
+      <div class="col-md-6">
+        <input type="password" class="form-control" id="password" placeholder="Parol" required>
+      </div>
+      <div class="col-md-6">
+        <input type="date" class="form-control" id="dob" required>
+      </div>
+      <div class="col-md-6">
+        <input type="text" class="form-control" id="phone" placeholder="Telefon raqami" required>
+      </div>
+      <div class="col-md-6">
+        <select class="form-select" id="role" required>
+          <option value="" disabled selected>Rolni tanlang</option>
+          <option value="doctor">Doctor</option>
+          <option value="cashier">Cashier</option>
+          <option value="accountant">Accountant</option>
+          <option value="registration">Registration</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+
+      <div class="col-md-6" id="specialty-group" style="display: none;">
+        <input type="text" class="form-control" id="specialty" placeholder="Mutaxassisligi">
+      </div>
+      <div class="col-md-6" id="price-group" style="display: none;">
+        <input type="number" class="form-control" id="price" placeholder="Konsultatsiya narxi (so'm)">
+      </div>
+
+      <div class="col-md-12">
+        <button type="submit" class="btn btn-primary w-100">Qo‘shish</button>
+      </div>
+    </form>
+
+    <!-- User List -->
+    <div class="card">
+      <div class="card-header">📋 Ro‘yxat</div>
+      <ul id="doctor-list" class="list-group list-group-flush"></ul>
     </div>
-  </form>
-
-  <!-- ✅ List of Doctors -->
-  <div class="card">
-    <div class="card-header">📋 Registered Doctors</div>
-    <ul id="doctor-list" class="list-group list-group-flush"></ul>
   </div>
-</div>
 
-
-
-<script>
-
-const token = localStorage.getItem("token");
-const form = document.getElementById("doctor-form");
-const doctorList = document.getElementById("doctor-list");
-const submitBtn = document.getElementById("submit-btn");
-
-if (!token) {
-  alert("Please log in.");
-  window.location.href = "/";
-}
-
-// 🔃 Load doctors
-function loadDoctors() {
-  fetch("http://localhost:8000/api/v1/doctor-list/", {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-  .then(res => res.json())
-  .then(data => {
-    doctorList.innerHTML = "";
-    data.forEach(doc => {
-      const li = document.createElement("li");
-      li.className = "list-group-item d-flex justify-content-between align-items-center";
-      li.innerHTML = `
-        <div>
-          <strong>${doc.name}</strong>
-          <span class="text-muted">(${doc.specialty})</span>
-        </div>
-        <div>
-          <button class="btn btn-sm btn-warning me-2 edit-btn" data-id="${doc.id}">Edit</button>
-          <button class="btn btn-sm btn-danger delete-btn" data-id="${doc.id}">Delete</button>
-        </div>
-      `;
-      doctorList.appendChild(li);
-    });
-
-    // 🟡 Attach event listeners for edit/delete buttons
-    document.querySelectorAll(".edit-btn").forEach(btn => {
-      btn.addEventListener("click", () => editDoctor(btn.dataset.id));
-    });
-    document.querySelectorAll(".delete-btn").forEach(btn => {
-      btn.addEventListener("click", () => deleteDoctor(btn.dataset.id));
-    });
-  });
-}
-
-// ✏️ Edit doctor
-function editDoctor(id) {
-  fetch(`http://localhost:8000/api/v1/doctor-list/${id}/`, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-  .then(res => res.json())
-  .then(data => {
-    document.getElementById("doctor-id").value = id;
-    document.getElementById("first-name").value = data.user.first_name;
-    document.getElementById("last-name").value = data.user.last_name;
-    document.getElementById("email").value = data.user.email;
-    document.getElementById("dob").value = data.user.date_of_birth;
-    document.getElementById("phone").value = data.user.phone_number;
-    document.getElementById("specialty").value = data.specialty;
-    submitBtn.textContent = "Update Doctor";
-  });
-}
-
-// ❌ Delete doctor
-function deleteDoctor(id) {
-  if (!confirm("Are you sure you want to delete this doctor?")) return;
-
-  fetch(`http://localhost:8000/api/v1/doctor-list/${id}/`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` }
-  })
-  .then(res => {
-    if (res.status === 204) {
-      alert("✅ Doctor deleted");
-      loadDoctors();
-    } else {
-      alert("❌ Failed to delete doctor");
-    }
-  });
-}
-
-// 💾 Create or update doctor
-form.addEventListener("submit", e => {
-  e.preventDefault();
-
-  const id = document.getElementById("doctor-id").value;
-  const payload = {
-    first_name: document.getElementById("first-name").value,
-    last_name: document.getElementById("last-name").value,
-    email: document.getElementById("email").value,
-    date_of_birth: document.getElementById("dob").value,
-    phone_number: document.getElementById("phone").value,
-    specialty: document.getElementById("specialty").value,
-    password: document.getElementById("password").value,
-  };
-
-  const url = id
-    ? `http://localhost:8000/api/v1/doctor-list/${id}/`
-    : "http://localhost:8000/api/v1/create-doctor/";
-  const method = id ? "PATCH" : "POST";
-
-  fetch(url, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`
-    },
-    body: JSON.stringify(payload)
-  })
-  .then(res => res.json())
-  .then(() => {
-    form.reset();
-    document.getElementById("doctor-id").value = "";
-    submitBtn.textContent = "Create Doctor";
-    loadDoctors();
-    alert("✅ Doctor saved");
-  })
-  .catch(err => {
-    alert("❌ Error saving doctor");
-    console.error(err);
-  });
-});
-
-// 🔃 Load initial data
-loadDoctors();
-</script>
+  <script src="/static/js/doctor-add.js"></script>
 </body>
 </html>

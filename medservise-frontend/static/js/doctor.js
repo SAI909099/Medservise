@@ -1,27 +1,47 @@
+const token = localStorage.getItem("token");
+if (!token) {
+  alert("Avval tizimga kiring!");
+  window.location.href = "/";
+}
+
 document.addEventListener("DOMContentLoaded", () => {
-  const token = localStorage.getItem("token");
-  if (!token) {
-    alert("Avval tizimga kiring!");
-    window.location.href = "index.html";
-    return;
-  }
+  // 🔒 Tekshiruv: Foydalanuvchini aniqlash
+  fetch("http://89.39.95.150/api/v1/profile/", {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+    .then((res) => {
+      if (!res.ok) throw new Error("Foydalanuvchi aniqlanmadi");
+      return res.json();
+    })
+    .then((user) => {
+      if (!user || !user.id) {
+        alert("Foydalanuvchi topilmadi");
+        localStorage.clear();
+        window.location.href = "/";
+      }
+    })
+    .catch((err) => {
+      console.error("Foydalanuvchini tekshirishda xatolik:", err);
+      localStorage.clear();
+      window.location.href = "/";
+    });
 
   const dateFilter = document.getElementById("date-filter");
   const searchName = document.getElementById("search-name");
   const tableBody = document.querySelector("#appointments-table tbody");
 
   function loadAppointments(date = null, search = "") {
-    fetch("http://localhost:8000/api/v1/my-appointments/", {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
+    fetch("http://89.39.95.150/api/v1/my-appointments/", {
+      headers: { Authorization: `Bearer ${token}` },
     })
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => {
+        if (!res.ok) throw new Error("Qabul ma'lumotlarini olishda xatolik");
+        return res.json();
+      })
+      .then((data) => {
         tableBody.innerHTML = "";
         let appointments = data.appointments;
 
-        // Filter by date if selected
         if (date) {
           const selectedDate = new Date(date).toDateString();
           appointments = appointments.filter(app =>
@@ -29,7 +49,6 @@ document.addEventListener("DOMContentLoaded", () => {
           );
         }
 
-        // Filter by name if typed
         if (search.trim() !== "") {
           const lowerSearch = search.toLowerCase();
           appointments = appointments.filter(app =>
@@ -37,8 +56,7 @@ document.addEventListener("DOMContentLoaded", () => {
           );
         }
 
-        // Render appointments
-        appointments.forEach(app => {
+        appointments.forEach((app) => {
           const row = document.createElement("tr");
           const createdAt = new Date(app.created_at).toLocaleString();
           const fullName = `${app.patient.first_name} ${app.patient.last_name}`;
@@ -66,69 +84,71 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       })
       .catch(err => {
-        console.error("Xatolik qabul olishda:", err);
-        alert("Qabul roʻyxatini yuklab boʻlmadi.");
+        console.error("Qabul ro'yxatini yuklashda xatolik:", err);
       });
   }
 
-  // Bugungi sana bo'yicha filter
+  // 🔃 Avtomatik yuklash (every 5 seconds)
+  setInterval(() => {
+    const selectedDate = dateFilter?.value || null;
+    const nameQuery = searchName?.value || "";
+    loadAppointments(selectedDate, nameQuery);
+  }, 5000);
+
+  // 🔘 Bugungi qabul tugmasi
   document.getElementById("filter-today-btn")?.addEventListener("click", () => {
     const today = new Date().toISOString().split("T")[0];
     dateFilter.value = today;
     loadAppointments(today, searchName.value);
   });
 
-  // Apply filter with date + name
+  // 🔘 Qidirish tugmasi
   document.getElementById("apply-filters-btn")?.addEventListener("click", () => {
     const selectedDate = dateFilter.value;
     const nameQuery = searchName.value;
     loadAppointments(selectedDate || null, nameQuery);
   });
 
-  // Dastlabki yuklash
+  // 🔃 Boshlang'ich yuklash
   loadAppointments();
 });
 
-// ✅ Qabulni bajarilgan deb belgilash
 function markDone(id) {
-  const token = localStorage.getItem("token");
-  fetch(`http://localhost:8000/api/v1/my-appointments/${id}/`, {
+  fetch(`http://89.39.95.150/api/v1/my-appointments/${id}/`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`
+      Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ status: "done" })
+    body: JSON.stringify({ status: "done" }),
   })
-    .then(res => res.json())
-    .then(() => fetch(`http://localhost:8000/api/v1/clear-call/${id}/`, {
+    .then(res => {
+      if (!res.ok) throw new Error("Qabulni yangilab boʻlmadi.");
+      return res.json();
+    })
+    .then(() => fetch(`http://89.39.95.150/api/v1/clear-call/${id}/`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` }
     }))
-    .then(() => window.location.reload())
     .catch(err => {
-      console.error(err);
+      console.error("Yakuni bo'yicha xatolik:", err);
       alert("❌ Qabulni yakunlab boʻlmadi.");
     });
 }
 
-// ✅ Bemorni chaqirish
 function callPatient(appointmentId) {
-  const token = localStorage.getItem("token");
-
-  fetch(`http://localhost:8000/api/v1/call-patient/${appointmentId}/`, {
+  fetch(`http://89.39.95.150/api/v1/call-patient/${appointmentId}/`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`
-    }
+      Authorization: `Bearer ${token}`,
+    },
   })
-    .then(res => {
+    .then((res) => {
       if (!res.ok) throw new Error("Chaqirishda xatolik");
       return res.json();
     })
     .then(() => {
-      new Audio("/static/sound/beep.wav").play();
-      alert("🔔 Bemor chaqirildi!");
+      new Audio("/static/sound/beepmm.wav").play(); // 🎵 Sound only
       const btn = document.querySelector(`button[onclick="callPatient(${appointmentId})"]`);
       if (btn) {
         btn.textContent = "🔁 Qayta chaqirish";
@@ -136,37 +156,38 @@ function callPatient(appointmentId) {
         btn.classList.add("btn-secondary");
       }
     })
-    .catch(err => {
-      console.error(err);
-      alert("❌ Chaqirishda xatolik.");
+    .catch((err) => {
+      console.error("Chaqirishda xatolik:", err);
     });
 }
 
-// ✅ O'chirishni tasdiqlash va bajarish
 function confirmDelete(id) {
   if (confirm("Rostdan ham ushbu qabuli o‘chirmoqchimisiz?")) {
     deleteApp(id);
   }
 }
 
-// ✅ Qabulni o'chirish
 function deleteApp(id) {
-  const token = localStorage.getItem("token");
-  fetch(`http://localhost:8000/api/v1/my-appointments/${id}/`, {
+  fetch(`http://89.39.95.150/api/v1/my-appointments/${id}/`, {
     method: "DELETE",
     headers: {
-      Authorization: `Bearer ${token}`
-    }
-  }).then(() => window.location.reload());
+      Authorization: `Bearer ${token}`,
+    },
+  })
+    .then((res) => {
+      if (!res.ok) throw new Error("Qabulni o'chirib boʻlmadi.");
+    })
+    .catch(err => {
+      console.error("O'chirishda xatolik:", err);
+      alert("❌ Oʻchirishda xatolik.");
+    });
 }
 
-// ✅ Bemor ma'lumotiga o'tish
 function viewInfo(patientId) {
-  window.location.href = `patient-detail.html?patient_id=${patientId}`;
+  window.location.href = `/doctor/patient-detail/?patient_id=${patientId}`;
 }
 
-// ✅ Chiqish
 function logout() {
-  localStorage.removeItem("token");
-  window.location.href = "index.html";
+  localStorage.clear();
+  window.location.href = "/";
 }

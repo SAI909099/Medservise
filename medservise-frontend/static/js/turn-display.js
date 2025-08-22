@@ -8,7 +8,6 @@ function updateTurnDisplay(data) {
   const allCalls = [...(data.doctor_calls || []), ...(data.service_calls || [])];
   const queued = data.queued || [];
 
-  // Update latest called patient
   if (allCalls.length > 0) {
     const latest = allCalls[0];
     const { turn_number, patient_name } = latest;
@@ -23,8 +22,8 @@ function updateTurnDisplay(data) {
     }
   }
 
-  // Show queued patients
-  queueList.innerHTML = ""; // Clear previous
+  // Update queued list
+  queueList.innerHTML = "";
   queued.forEach(entry => {
     const item = document.createElement("div");
     item.className = "queue-item";
@@ -34,11 +33,11 @@ function updateTurnDisplay(data) {
 }
 
 function fetchTurn() {
-  fetch("http://localhost:8000/api/v1/current-calls/")
+  fetch("http://89.39.95.150/api/v1/current-calls/")
     .then(res => res.json())
     .then(updateTurnDisplay)
     .catch(err => console.error("❌ Failed to fetch turn:", err));
 }
 
 fetchTurn();
-setInterval(fetchTurn, 5000);
+setInterval(fetchTurn, 5000);  // ✅ Fixed typo
