@@ -94,3 +94,9 @@ class UserProfileView(APIView):
 
 class PublicDoctorServicePageView(TemplateView):
     template_name = "doctor_service_lab.html"
+
+class DoctorsListView(TemplateView):
+    template_name = "doctors.html"
+
+class PatientBillingView(TemplateView):
+    template_name = "patient-billing.html"

@@ -9,7 +9,7 @@ from apps.frontend_views import IndexView, ArchiveView, CashRegisterView, \
     DoctorView, DoctorAddView, DoctorPatientRoomsView, DoctorPaymentsView, PatientDetailView, PatientSelectionView, \
     PatientsView, PaymentsView, PriceManagementView, RegisterView, RegistrationView, RoomsView, ServicesView, \
     TreatmentView, TreatmentRegistrationView, TreatmentRoomManagementView, TurnDisplayView, TreatmentRoomPaymentsView, \
-    AdminDashboardView , AccountantDashboardtView , PublicDoctorServicePageView
+    AdminDashboardView , AccountantDashboardtView , PublicDoctorServicePageView, DoctorsListView, PatientBillingView
 urlpatterns = [
     path('api/v1/' , include('apps.urls')),
     path('admin/', admin.site.urls),
@@ -39,6 +39,8 @@ urlpatterns = [
     path('registration/', RegistrationView.as_view(), name='registration'),
     path('rooms/', RoomsView.as_view(), name='rooms'),
     path('services/', ServicesView.as_view(), name='services'),
+    path('doctors/', DoctorsListView.as_view(), name='doctors'),
+    path('patient-billing/<int:patient_id>/', PatientBillingView.as_view(), name='patient-billing'),
     path('treatment/', TreatmentView.as_view(), name='treatment'),
     path('treatment-registration/', TreatmentRegistrationView.as_view(), name='treatment-registration'),
     path('treatment-room-management/', TreatmentRoomManagementView.as_view(),

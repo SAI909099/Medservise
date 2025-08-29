@@ -12,7 +12,7 @@ class ReceiptPrinter:
     def print_receipt(self, receipt_data):
         try:
             self.device.set(align='center', bold=True, width=2, height=2)
-            self.device.text("Medservise\n")
+            self.device.text("Controllab\n")
             self.device.set(align='center', bold=False, width=1, height=1)
             self.device.text("NAQD TO‘LOV CHEKI \n")
             self.device.text("-------------------------------\n")

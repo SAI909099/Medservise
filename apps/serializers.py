@@ -729,7 +729,7 @@ class LabRegistrationSerializer(serializers.ModelSerializer):
             'created_at',
             'status',
             'notes',
-            'visit_data'
+            'repeat_count', 'visit_data'
         ]
         read_only_fields = ['created_at', 'patient_name', 'service_name', 'doctor_name', 'visit_data']
 

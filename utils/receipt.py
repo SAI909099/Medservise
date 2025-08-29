@@ -5,7 +5,7 @@ def print_receipt(patient_name, amount, payment_method, status, doctor_name, not
     try:
         p = Usb(0x0483, 0x070b)  # Your exact printer VendorID & ProductID
         p.set(align='center', text_type='B', width=2, height=2)
-        p.text("🏥 Medservise Klinikasi\n\n")
+        p.text("🏥 Controllab Klinikasi\n\n")
 
         p.set(align='left', text_type='NORMAL', width=1, height=1)
         p.text(f"F.I.O.: {patient_name or '-'}\n")

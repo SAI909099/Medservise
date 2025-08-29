@@ -1124,7 +1124,7 @@ class PrintTurnView(APIView):
 
             # Header
             p.set(align='center', bold=True, width=2, height=2)
-            p.text("Medservise Clinic\n")
+            p.text("Controllab Clinic\n")
 
             # Body
             p.set(align='left', bold=False, width=1, height=1)
